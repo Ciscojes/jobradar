@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:4CAF50,100:0d1117&height=200&section=header&text=jobradar&fontSize=60&fontColor=4CAF50&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=jobradar&fontSize=60&fontColor=00FF41&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
 </div>
 
 <div align="center">
@@ -15,7 +15,7 @@
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00?style=for-the-badge&logo=python&logoColor=white)](https://sqlalchemy.org)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-4CAF50?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-00FF41?style=for-the-badge)](LICENSE)
 
 <br/>
 
@@ -239,6 +239,6 @@ Distribuido bajo la licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) par
 
 _Built with 🖤 in Madrid_
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:4CAF50,100:0d1117&height=100&section=footer" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=100&section=footer" width="100%"/>
 
 </div>
