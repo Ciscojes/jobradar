@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=jobradar&fontSize=60&fontColor=00FF41&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=jobradar&fontSize=60&fontColor=ffffff&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
 </div>
 
 <div align="center">
