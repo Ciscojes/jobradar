@@ -287,7 +287,7 @@ El dashboard no se conecta directamente a la base de datos. Todas las operacione
 
 ### Dashboard
 
-![Dashboard de JobRadar](docs/images/dashboard-home.png)
+![Dashboard de JobRadar](docs/images/dashboard-home.jpeg)
 
 Dashboard autenticado donde cada usuario puede crear y administrar sus alertas de empleo.
 
@@ -295,7 +295,7 @@ Dashboard autenticado donde cada usuario puede crear y administrar sus alertas d
 
 ### API REST (Swagger)
 
-![Swagger de JobRadar](docs/images/swagger.png)
+![Swagger de JobRadar](docs/images/swagger.jpeg)
 
 Documentación interactiva de FastAPI con autenticación JWT y todos los endpoints disponibles.
 
