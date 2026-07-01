@@ -444,8 +444,7 @@ Distribuido bajo licencia MIT. Consulta el archivo `LICENSE` si esta disponible 
 
 ## Autor
 
-**Jesús Granados**
-**Oliver Lugo**
+**Jesús Granados y Oliver Lugo**
 
 Estudiante de Desarrollo Full Stack
 
