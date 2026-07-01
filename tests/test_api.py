@@ -109,6 +109,7 @@ def test_rutas_protegidas_declaran_get_current_user():
         "/alertas/{alerta_id}",
         "/alertas/{alerta_id}/activar",
         "/alertas/{alerta_id}/desactivar",
+        "/scheduler/status",
         "/scraper/sync",
     }
 

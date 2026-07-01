@@ -99,7 +99,9 @@ class ScraperRun(Base):
     status = Column(String, nullable=False)
     started_at = Column(DateTime, default=utc_now)
     finished_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, default=0)
     offers_found = Column(Integer, default=0)
+    new_offers = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
 
 

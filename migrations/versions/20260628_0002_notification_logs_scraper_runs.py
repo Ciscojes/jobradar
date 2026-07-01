@@ -53,7 +53,9 @@ def upgrade() -> None:
             sa.Column("status", sa.String(), nullable=False),
             sa.Column("started_at", sa.DateTime(), nullable=True),
             sa.Column("finished_at", sa.DateTime(), nullable=True),
+            sa.Column("duration_seconds", sa.Integer(), nullable=True),
             sa.Column("offers_found", sa.Integer(), nullable=True),
+            sa.Column("new_offers", sa.Integer(), nullable=True),
             sa.Column("error_message", sa.Text(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
         )

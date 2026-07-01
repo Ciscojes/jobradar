@@ -1,22 +1,36 @@
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, Iterable
 
 from .database import engine, Base, SessionLocal
 from .deps import get_current_user
-from .routers import auth, ofertas, alertas
+from .routers import auth, ofertas, alertas, scheduler
 from .scraper.infojobs import fetch_infojobs_offers
 from .scraper.indeed import fetch_indeed_offers
 from .services.telegram import send_telegram_notification
+from .services.scheduler import ensure_scheduler_schema, scheduler_service
 from . import models
 
 # Crear las tablas de la base de datos automáticamente
 Base.metadata.create_all(bind=engine)
+ensure_scheduler_schema(engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler_service.start()
+    try:
+        yield
+    finally:
+        scheduler_service.shutdown()
+
 
 app = FastAPI(
     title="jobradar API",
     description="API para centralizar ofertas de empleo de Infojobs e Indeed y enviar alertas por Telegram.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configurar middleware de CORS para conectar con Streamlit u otros orígenes
@@ -32,6 +46,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(ofertas.router)
 app.include_router(alertas.router)
+app.include_router(scheduler.router)
 
 @app.get("/")
 def read_root() -> Dict[str, Any]:

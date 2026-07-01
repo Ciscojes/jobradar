@@ -102,7 +102,9 @@ class ScraperRun(BaseModel):
     status: str
     started_at: datetime
     finished_at: Optional[datetime] = None
+    duration_seconds: int = 0
     offers_found: int = 0
+    new_offers: int = 0
     error_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
