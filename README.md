@@ -1,244 +1,455 @@
-<div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=jobradar&fontSize=60&fontColor=ffffff&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
-</div>
+# 🚀 JobRadar
 
-<div align="center">
+Plataforma SaaS para monitorizar ofertas de empleo utilizando FastAPI, PostgreSQL, Streamlit y Docker.
 
-# 🎯 jobradar
+JobRadar permite a cada usuario crear alertas personalizadas, autenticar su sesion con JWT, consultar un dashboard privado y ejecutar busquedas automaticas de ofertas mediante un scheduler preparado para integrarse con InfoJobs.
 
-### _Radar de ofertas de empleo — Infojobs API + filtros personalizados + alertas por Telegram_
+**Stack principal:** Python 3.12 · FastAPI · PostgreSQL · SQLAlchemy · Streamlit · APScheduler · Docker Compose
 
-<br/>
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00?style=for-the-badge&logo=python&logoColor=white)](https://sqlalchemy.org)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-00FF41?style=for-the-badge)](LICENSE)
+## Objetivo
 
-<br/>
+El objetivo de JobRadar es centralizar alertas de empleo personalizadas por usuario y automatizar la deteccion de ofertas relevantes desde fuentes externas. El proyecto esta construido como una base SaaS extensible, preparada para evolucionar hacia integraciones reales con InfoJobs, Telegram, email y despliegue en produccion.
 
-[![Status](https://img.shields.io/badge/🚧_Estado-En_Desarrollo-yellow?style=flat-square)](/)
-[![API](https://img.shields.io/badge/📡_API-Infojobs_Oficial-blue?style=flat-square)](https://developer.infojobs.net)
-[![Made with ❤️](https://img.shields.io/badge/Made_with-❤️_en_Madrid-red?style=flat-square)](/)
+En esta fase, el foco es tener una base estable y demostrable:
 
-</div>
+- API protegida con JWT.
+- Base de datos preparada para multiples usuarios.
+- CRUD completo de alertas.
+- Dashboard que consume la API por HTTP.
+- Scheduler automatico con APScheduler.
+- Preparacion para conectar InfoJobs sin hardcodear credenciales.
 
----
+## ✨ Características
 
-<br/>
+- [x] Docker Compose
+- [x] PostgreSQL
+- [x] FastAPI
+- [x] JWT
+- [x] Dashboard autenticado
+- [x] CRUD de alertas
+- [x] Scheduler automático
+- [x] Integración preparada para InfoJobs
+- [x] Tests automatizados
+- [ ] Telegram
+- [ ] Email
+- [ ] OAuth InfoJobs
+- [ ] Deploy
 
-## 🧠 ¿Qué es jobradar?
+## Arquitectura
 
-**jobradar** es una herramienta Python que conecta con la **API oficial de Infojobs**, centraliza las ofertas en una base de datos local y te avisa por **Telegram** en tiempo real cuando aparece una oferta que encaja con tu perfil.
-
-Sin scraping. Sin bloqueos. Datos limpios, legales y actualizados.
-
-> 💡 _Porque tu próximo trabajo no debería encontrarte a ti buscando manualmente._
-
-<br/>
-
----
-
-## ✨ Funcionalidades
-
-| Feature | Descripción |
-|--------|-------------|
-| 📡 **Infojobs API Oficial** | Integración directa con la API pública de Infojobs, sin scraping |
-| 🔍 **Filtros avanzados** | Por tecnología, ciudad, modalidad y salario |
-| ⏱️ **Sync automático** | Nuevas ofertas cada X horas con APScheduler |
-| 🔔 **Alertas Telegram** | Notificación instantánea cuando aparece una oferta a tu medida |
-| 📋 **Seguimiento** | Marca ofertas como `aplicado`, `guardado` o `descartado` |
-| 🌐 **API REST** | Endpoints documentados con Swagger UI |
-| 🖥️ **Dashboard** | Interfaz visual con Streamlit para explorar y gestionar ofertas |
-
-<br/>
-
----
-
-## 🛠️ Stack tecnológico
-
-```python
-stack = {
-    "backend":   ["FastAPI", "SQLAlchemy", "APScheduler", "Requests"],
-    "database":  ["SQLite (dev)", "PostgreSQL (prod)"],
-    "frontend":  ["Streamlit"],
-    "alerts":    ["python-telegram-bot"],
-    "api":       ["Infojobs API Oficial"],
-    "devops":    ["Docker", "docker-compose"],
-}
+```text
+Usuario
+  ↓
+Dashboard Streamlit
+  ↓
+FastAPI
+  ├── Auth
+  ├── Alertas
+  ├── Scheduler
+  └── Scraper
+  ↓
+PostgreSQL
 ```
 
-<br/>
+Componentes principales:
 
----
+- `dashboard/app.py`: interfaz web autenticada.
+- `app/main.py`: entrada principal de FastAPI.
+- `app/routers/`: endpoints REST.
+- `app/models.py`: modelos SQLAlchemy.
+- `app/schemas.py`: schemas Pydantic.
+- `app/scraper/infojobs.py`: preparacion para la API de InfoJobs.
+- `app/services/scheduler.py`: ejecucion automatica de busquedas.
+- `migrations/`: migraciones Alembic.
+- `tests/`: pruebas automatizadas.
 
-## 📁 Estructura del proyecto
+## Tecnologias Utilizadas
 
-```
+- Python 3.12
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- PostgreSQL
+- Alembic
+- Streamlit
+- APScheduler
+- Requests
+- Pytest
+- Docker
+- Docker Compose
+
+## Estructura de Carpetas
+
+```text
 jobradar/
-│
-├── 📂 app/
-│   ├── 🐍 main.py               # Punto de entrada FastAPI
-│   ├── 🐍 database.py           # Configuración SQLAlchemy
-│   ├── 🐍 models.py             # Modelos de base de datos
-│   ├── 🐍 schemas.py            # Schemas Pydantic
-│   │
-│   ├── 📂 scraper/
-│   │   ├── 🐍 infojobs.py       # API oficial de Infojobs
-│   │   └── 🐍 indeed.py         # Scraper Indeed España
-│   │
-│   ├── 📂 routers/
-│   │   ├── 🐍 ofertas.py        # CRUD de ofertas
-│   │   └── 🐍 alertas.py        # Gestión de alertas
-│   │
-│   └── 📂 services/
-│       ├── 🐍 scheduler.py      # Tareas periódicas
-│       └── 🐍 telegram.py       # Notificaciones Telegram
-│
-├── 📂 dashboard/
-│   ├── 🐍 app.py                # App Streamlit
-│   └── 📂 components/
-│
-├── 📂 tests/
-│   ├── 🐍 test_api.py
-│   └── 🐍 test_scraper.py
-│
-├── 🐳 docker-compose.yml
-├── 📄 requirements.txt
-├── 🔒 .env.example
-└── 📖 README.md
+├── app/
+│   ├── core/
+│   │   └── security.py
+│   ├── routers/
+│   │   ├── alertas.py
+│   │   ├── auth.py
+│   │   ├── notificaciones.py
+│   │   └── ofertas.py
+│   ├── scraper/
+│   │   ├── indeed.py
+│   │   └── infojobs.py
+│   ├── services/
+│   │   ├── email.py
+│   │   ├── notifications.py
+│   │   ├── scheduler.py
+│   │   └── telegram.py
+│   ├── database.py
+│   ├── deps.py
+│   ├── main.py
+│   ├── models.py
+│   └── schemas.py
+├── dashboard/
+│   ├── components/
+│   ├── app.py
+│   └── main.py
+├── migrations/
+│   ├── env.py
+│   └── versions/
+├── tests/
+│   ├── test_api.py
+│   ├── test_scraper.py
+│   ├── test_scheduler.py
+│   └── test_sync.py
+├── .env.example
+├── alembic.ini
+├── docker-compose.yml
+├── Dockerfile
+├── requirements-api.txt
+├── requirements-dashboard.txt
+├── requirements.txt
+└── README.md
 ```
 
-<br/>
+## Instalacion
 
----
-
-## 🚀 Instalación rápida
-
-### 1️⃣ Clona el repositorio
+### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/OLIVER26GOLDEN/jobradar.git
+git clone https://github.com/Ciscojes/jobradar.git
 cd jobradar
 ```
 
-### 2️⃣ Entorno virtual + dependencias
+### 2. Crear entorno virtual
 
 ```bash
-python -m venv venv
-source venv/bin/activate       # Linux / macOS
-# venv\Scripts\activate        # Windows
+python -m venv .venv
+source .venv/bin/activate
+```
 
+En Windows:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 3. Instalar dependencias
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Variables de entorno
+Para instalaciones separadas:
+
+```bash
+pip install -r requirements-api.txt
+pip install -r requirements-dashboard.txt
+```
+
+### 4. Crear archivo de entorno
 
 ```bash
 cp .env.example .env
 ```
 
+## Variables de Entorno
+
+Ejemplo basado en `.env.example`:
+
 ```env
-# Base de datos
+# Opcion rapida para desarrollo:
 DATABASE_URL=sqlite:///./jobradar.db
 
-# Infojobs API → https://developer.infojobs.net
-INFOJOBS_CLIENT_ID=tu_client_id
-INFOJOBS_CLIENT_SECRET=tu_client_secret
+# Opcion SaaS local con Docker Compose:
+# DATABASE_URL=postgresql://jobradar:jobradar@localhost:5432/jobradar
 
-# Telegram Bot → @BotFather
-TELEGRAM_BOT_TOKEN=tu_token
-TELEGRAM_CHAT_ID=tu_chat_id
+SECRET_KEY=cambia-este-valor-en-produccion
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 
-# Scheduler
-SCRAPER_INTERVAL_HOURS=6
+# InfoJobs: opcional. Si faltan, se usan datos de prueba.
+INFOJOBS_CLIENT_ID=
+INFOJOBS_CLIENT_SECRET=
+INFOJOBS_REDIRECT_URI=http://localhost:8000/auth/infojobs/callback
+
+# Telegram: pendiente. Cada usuario podra configurar su canal.
+TELEGRAM_BOT_TOKEN=
+
+# Email SMTP: pendiente. Si faltan, el envio se simulara.
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+EMAIL_FROM=
+
+# Scheduler: activo por defecto en desarrollo.
+SCRAPER_SCHEDULER_ENABLED=true
+SCRAPER_INTERVAL_MINUTES=10
+SCRAPER_DEFAULT_QUERY=python
+
+# Dashboard
+API_URL=http://localhost:8000
 ```
 
-### 4️⃣ Arranca el servidor
+Notas:
+
+- En Docker Compose, el dashboard debe usar `API_URL=http://api:8000`.
+- Si `INFOJOBS_CLIENT_ID` o `INFOJOBS_CLIENT_SECRET` estan vacios, JobRadar usa datos mock.
+- El scheduler se ejecuta cada 10 minutos por defecto en desarrollo.
+- No se deben hardcodear credenciales reales en el repositorio.
+
+## Uso con Docker Compose
+
+Levantar todos los servicios:
+
+```bash
+docker compose up -d
+```
+
+Servicios disponibles:
+
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- Dashboard: `http://localhost:8501`
+- PostgreSQL: `localhost:5432`
+
+Ver estado:
+
+```bash
+docker compose ps
+```
+
+Ver logs:
+
+```bash
+docker compose logs -f api
+docker compose logs -f dashboard
+docker compose logs -f postgres
+```
+
+Detener servicios:
+
+```bash
+docker compose down
+```
+
+## Ejecutar la API
+
+Sin Docker:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 5️⃣ Abre el dashboard
+La API queda disponible en:
+
+- `http://localhost:8000`
+- `http://localhost:8000/docs`
+
+## Ejecutar el Dashboard
+
+Sin Docker:
 
 ```bash
-streamlit run dashboard/app.py
+API_URL=http://localhost:8000 streamlit run dashboard/app.py
 ```
 
-<br/>
+El dashboard queda disponible en:
 
----
-
-## 📡 API Endpoints
-
-```
-GET    /ofertas              → Lista de ofertas con filtros
-GET    /ofertas/{id}         → Detalle de una oferta
-PATCH  /ofertas/{id}/estado  → Actualiza estado (aplicado / guardado / descartado)
-POST   /alertas              → Crea una alerta personalizada
-GET    /alertas              → Lista de alertas activas
-DELETE /alertas/{id}         → Elimina una alerta
-POST   /scraper/sync         → Sincronización manual con Infojobs
+```text
+http://localhost:8501
 ```
 
-📚 Documentación interactiva disponible en: `http://localhost:8000/docs`
+El dashboard no se conecta directamente a la base de datos. Todas las operaciones pasan por FastAPI usando HTTP y JWT.
 
-<br/>
+## 📷 Capturas
 
----
+### Dashboard
 
-## 🗺️ Roadmap
+![Dashboard de JobRadar](docs/images/dashboard-home.jpeg)
 
-- [x] Diseño de arquitectura
-- [x] Estructura del proyecto
-- [ ] Integración Infojobs API
-- [ ] Modelos SQLAlchemy
-- [ ] API REST con FastAPI
-- [ ] Alertas por Telegram
-- [ ] Scheduler automático
-- [ ] Dashboard Streamlit
-- [ ] Tests unitarios
-- [ ] Dockerización
-- [ ] Deploy en VPS / Railway
-
-<br/>
+Dashboard autenticado donde cada usuario puede crear y administrar sus alertas de empleo.
 
 ---
 
-## 👨‍💻 Equipo
+### API REST (Swagger)
 
-<div align="center">
+![Swagger de JobRadar](docs/images/swagger.jpeg)
 
-| | Dev | Área |
-|--|-----|------|
-| 🧑‍💻 | [**Oliver Lugo**](https://github.com/OLIVER26GOLDEN) | Backend · FastAPI · Base de datos · Servicios |
-| 🧑‍💻 | [**Jesús Granados**](https://github.com/Ciscojes) | Dashboard · Filtros · Tests |
-
-</div>
-
-<br/>
+Documentación interactiva de FastAPI con autenticación JWT y todos los endpoints disponibles.
 
 ---
 
-## 📄 Licencia
+## Endpoints Principales
 
-Distribuido bajo la licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) para más información.
+### Auth
 
-<br/>
+| Metodo | Endpoint         | Descripcion                 |
+| ------ | ---------------- | --------------------------- |
+| `POST` | `/auth/register` | Crear usuario               |
+| `POST` | `/auth/login`    | Obtener JWT                 |
+| `GET`  | `/auth/me`       | Obtener usuario autenticado |
 
----
+### Alertas
 
-<div align="center">
+| Metodo   | Endpoint                          | Descripcion                |
+| -------- | --------------------------------- | -------------------------- |
+| `GET`    | `/alertas/`                       | Listar alertas del usuario |
+| `POST`   | `/alertas/`                       | Crear alerta               |
+| `GET`    | `/alertas/{alerta_id}`            | Ver detalle de alerta      |
+| `PUT`    | `/alertas/{alerta_id}`            | Editar alerta              |
+| `PATCH`  | `/alertas/{alerta_id}/activar`    | Activar alerta             |
+| `PATCH`  | `/alertas/{alerta_id}/desactivar` | Desactivar alerta          |
+| `DELETE` | `/alertas/{alerta_id}`            | Eliminar alerta            |
 
-**¿Te ha resultado útil? Dale una ⭐ al repo — significa mucho.**
+### Ofertas
 
-<br/>
+| Metodo  | Endpoint                      | Descripcion           |
+| ------- | ----------------------------- | --------------------- |
+| `GET`   | `/ofertas/`                   | Listar ofertas        |
+| `POST`  | `/ofertas/`                   | Crear oferta          |
+| `GET`   | `/ofertas/{oferta_id}`        | Ver detalle de oferta |
+| `PATCH` | `/ofertas/{oferta_id}/estado` | Actualizar estado     |
 
-_Built with 🖤 in Madrid_
+### Scraper
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=100&section=footer" width="100%"/>
+| Metodo | Endpoint        | Descripcion                  |
+| ------ | --------------- | ---------------------------- |
+| `POST` | `/scraper/sync` | Sincronizacion manual actual |
 
-</div>
+### Scheduler
+
+| Metodo | Endpoint            | Descripcion                                                        |
+| ------ | ------------------- | ------------------------------------------------------------------ |
+| `GET`  | `/scheduler/status` | Estado del scheduler, ultima ejecucion, proxima ejecucion y conteo |
+
+La documentacion interactiva completa esta en:
+
+```text
+http://localhost:8000/docs
+```
+
+## Estado Actual del Desarrollo
+
+Implementado:
+
+- Docker Compose funcional.
+- API FastAPI funcional.
+- PostgreSQL funcional.
+- Autenticacion JWT.
+- Modelos base SaaS.
+- CRUD completo de alertas.
+- Dashboard autenticado.
+- Scheduler automatico con APScheduler.
+- Registro de ejecuciones en `ScraperRun`.
+- Preparacion de InfoJobs con variables de entorno y datos mock.
+- Tests automatizados.
+
+Pendiente:
+
+- OAuth e integracion real con InfoJobs.
+- Notificaciones por Telegram.
+- Notificaciones por email.
+- Flujo completo de ofertas por usuario.
+- Deploy.
+- Documentacion con capturas reales.
+
+## Roadmap
+
+### v1.0
+
+- [x] Docker
+- [x] PostgreSQL
+- [x] FastAPI
+- [x] Dashboard
+- [x] Auth
+- [x] CRUD Alertas
+- [x] Scheduler
+- [x] Preparado para InfoJobs
+
+### v1.1
+
+- [ ] OAuth InfoJobs
+
+### v1.2
+
+- [ ] Telegram
+- [ ] Email
+
+### v2.0
+
+- [ ] Deploy
+
+## 🧪 Calidad del proyecto
+
+JobRadar esta preparado como proyecto de portfolio tecnico y base SaaS extensible:
+
+- 20 tests automatizados.
+- Docker Compose funcional.
+- Scheduler funcionando con APScheduler.
+- API protegida con JWT.
+- Arquitectura preparada para escalar por routers, servicios, modelos y scrapers.
+- Dashboard desacoplado de la base de datos: se comunica unicamente con FastAPI por HTTP.
+
+## Tests
+
+Ejecutar tests:
+
+```bash
+.venv/bin/python -m pytest --ignore-glob='*-JESUSPC*'
+```
+
+Tambien puede usarse:
+
+```bash
+pytest
+```
+
+Los tests actuales cubren:
+
+- Inicio basico de la API.
+- Auth: registro, login y usuario autenticado.
+- Rutas protegidas.
+- CRUD de ofertas existente.
+- CRUD de alertas.
+- Aislamiento de alertas por usuario.
+- Scrapers con mocks.
+- Scheduler automatico.
+- Sincronizacion mock.
+
+## Licencia
+
+Distribuido bajo licencia MIT. Consulta el archivo `LICENSE` si esta disponible en el repositorio.
+
+## Autor
+
+**Jesús Granados y Oliver Lugo**
+
+Estudiante de Desarrollo Full Stack
+
+GitHub:
+
+https://github.com/Ciscojes
+
+Este proyecto evoluciono a partir de una base inicial y actualmente continua siendo desarrollado por Jesús Granados Y Oliver Lugo.

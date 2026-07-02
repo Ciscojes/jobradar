@@ -1,31 +1,161 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.database import engine, Base
-from app.routers import ofertas, alertas
-from app.services.scheduler import start_scheduler, stop_scheduler
+from fastapi import Depends, FastAPI, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Dict, Any, Iterable
+
+from .database import engine, Base, SessionLocal
+from .deps import get_current_user
+from .routers import auth, ofertas, alertas, scheduler
+from .scraper.infojobs import fetch_infojobs_offers
+from .scraper.indeed import fetch_indeed_offers
+from .services.telegram import send_telegram_notification
+from .services.scheduler import ensure_scheduler_schema, scheduler_service
+from . import models
+
+# Crear las tablas de la base de datos automáticamente
+Base.metadata.create_all(bind=engine)
+ensure_scheduler_schema(engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Al arrancar
-    Base.metadata.create_all(bind=engine)
-    start_scheduler()
-    yield
-    # Al cerrar
-    stop_scheduler()
+    scheduler_service.start()
+    try:
+        yield
+    finally:
+        scheduler_service.shutdown()
 
 
 app = FastAPI(
-    title="jobradar 🎯",
-    description="Radar de ofertas de empleo — Infojobs API + alertas por Telegram",
+    title="jobradar API",
+    description="API para centralizar ofertas de empleo de Infojobs e Indeed y enviar alertas por Telegram.",
     version="1.0.0",
     lifespan=lifespan,
 )
 
+# Configurar middleware de CORS para conectar con Streamlit u otros orígenes
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Incluir los routers
+app.include_router(auth.router)
 app.include_router(ofertas.router)
 app.include_router(alertas.router)
+app.include_router(scheduler.router)
+
+@app.get("/")
+def read_root() -> Dict[str, Any]:
+    """
+    Endpoint principal para verificar el estado de la API.
+    """
+    return {
+        "status": "online",
+        "message": "Bienvenido al Radar de Ofertas de Empleo Inteligente (jobradar)",
+        "docs": "/docs"
+    }
+
+def offer_matches_alert(offer_data: Dict[str, Any], alert: models.Alerta) -> bool:
+    """
+    Comprueba si una oferta coincide con una alerta activa usando campos simples.
+    Los valores "Cualquiera" actuan como comodines para ubicacion y modalidad.
+    """
+    if not alert.activo:
+        return False
+
+    searchable_text = " ".join(
+        str(offer_data.get(field) or "")
+        for field in ("titulo", "descripcion", "empresa")
+    ).lower()
+    if alert.termino.lower() not in searchable_text:
+        return False
+
+    alert_location = (alert.ubicacion or "Cualquiera").lower()
+    offer_location = str(offer_data.get("ubicacion") or "").lower()
+    if alert_location != "cualquiera" and alert_location not in offer_location:
+        return False
+
+    alert_modality = (alert.modalidad or "Cualquiera").lower()
+    offer_modality = str(offer_data.get("modalidad") or "").lower()
+    if alert_modality != "cualquiera" and alert_modality not in offer_modality:
+        return False
+
+    return True
 
 
-@app.get("/", tags=["Root"])
-def root():
-    return {"mensaje": "jobradar activo 🎯 — visita /docs para la documentación"}
+def should_notify_offer(offer_data: Dict[str, Any], alerts: Iterable[models.Alerta]) -> bool:
+    """Devuelve True si no hay alertas activas o si alguna alerta coincide."""
+    active_alerts = [alert for alert in alerts if alert.activo]
+    if not active_alerts:
+        return True
+    return any(offer_matches_alert(offer_data, alert) for alert in active_alerts)
+
+
+def build_offer_notification(offer_data: Dict[str, Any]) -> str:
+    return (
+        f"🎯 *¡Nueva Oferta Encontrada!*\n\n"
+        f"💼 *Puesto:* {offer_data.get('titulo')}\n"
+        f"🏢 *Empresa:* {offer_data.get('empresa')}\n"
+        f"📍 *Ubicación:* {offer_data.get('ubicacion')}\n"
+        f"💼 *Modalidad:* {offer_data.get('modalidad')}\n"
+        f"💰 *Salario:* {offer_data.get('salario')}\n"
+        f"📡 *Fuente:* {offer_data.get('fuente')}\n\n"
+        f"🔗 [Ver oferta]({offer_data.get('enlace')})"
+    )
+
+
+def run_sync_task(query: str = "python") -> int:
+    """
+    Función auxiliar para ejecutar la sincronización en segundo plano.
+    Trae ofertas de InfoJobs e Indeed, las guarda en DB y notifica por Telegram si aplica.
+    """
+    db = SessionLocal()
+    try:
+        print(f"Iniciando sincronización para el término: '{query}'")
+        infojobs_offers = fetch_infojobs_offers(query, limit=5)
+        indeed_offers = fetch_indeed_offers(query, limit=5)
+
+        all_offers = infojobs_offers + indeed_offers
+        active_alerts = db.query(models.Alerta).filter(models.Alerta.activo.is_(True)).all()
+        new_offers_count = 0
+
+        for offer_data in all_offers:
+            exists = db.query(models.Oferta).filter(models.Oferta.enlace == offer_data["enlace"]).first()
+            if exists:
+                continue
+
+            db_offer = models.Oferta(**offer_data)
+            db.add(db_offer)
+            new_offers_count += 1
+
+            if should_notify_offer(offer_data, active_alerts):
+                try:
+                    send_telegram_notification(build_offer_notification(offer_data))
+                except Exception as telegram_error:
+                    print(f"Error al enviar notificación a Telegram: {telegram_error}")
+
+        db.commit()
+        print(f"Sincronización terminada. Se han guardado {new_offers_count} nuevas ofertas.")
+        return new_offers_count
+    finally:
+        db.close()
+
+@app.post("/scraper/sync", status_code=200)
+def sync_scraper(
+    background_tasks: BackgroundTasks, 
+    query: str = Query("python", description="Término de búsqueda para sincronizar"),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Sincronización manual que se ejecuta en segundo plano (Background Task)
+    para evitar bloquear la respuesta HTTP.
+    """
+    background_tasks.add_task(run_sync_task, query)
+    return {
+        "status": "success",
+        "message": f"Sincronización para '{query}' iniciada en segundo plano."
+    }

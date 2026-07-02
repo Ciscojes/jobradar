@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobradar-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: jobradar
+      POSTGRES_USER: jobradar
+      POSTGRES_PASSWORD: jobradar
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - jobradar_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobradar -d jobradar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS_FILE: requirements-api.txt
+
+    container_name: jobradar-api
+    restart: unless-stopped
+
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/code
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      DATABASE_URL: postgresql://jobradar:jobradar@postgres:5432/jobradar
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS_FILE: requirements-dashboard.txt
+
+    container_name: jobradar-dashboard
+    restart: unless-stopped
+
+    command: >
+      streamlit run dashboard/app.py
+      --server.address=0.0.0.0
+      --server.port=8501
+
+    ports:
+      - "8501:8501"
+
+    volumes:
+      - .:/code
+
+    depends_on:
+      - api
+
+    environment:
+      API_URL: http://api:8000
+
+volumes:
+  jobradar_postgres_data:

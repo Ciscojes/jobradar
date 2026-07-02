@@ -1,0 +1,7 @@
+streamlit
+pandas
+requests
+sqlalchemy
+pydantic
+httpx
+psycopg2-binary
