@@ -47,6 +47,9 @@ services:
       postgres:
         condition: service_healthy
 
+    env_file:
+      - .env
+
     environment:
       DATABASE_URL: postgresql://jobradar:jobradar@postgres:5432/jobradar
 
@@ -61,7 +64,7 @@ services:
     restart: unless-stopped
 
     command: >
-      streamlit run dashboard/app.py
+      streamlit run dashboard/main.py
       --server.address=0.0.0.0
       --server.port=8501
 
@@ -75,7 +78,7 @@ services:
       - api
 
     environment:
-      API_URL: http://api:8000
+      JOBRADAR_API_URL: http://api:8000
 
 volumes:
   jobradar_postgres_data:

@@ -11,12 +11,51 @@ from ..core.security import (
 )
 from ..database import get_db
 from ..deps import get_current_user
+from ..services.scheduler import scan_single_alert
 
 
 router = APIRouter(
     prefix="/auth",
     tags=["Auth"],
 )
+
+
+def _ensure_profile_alert(db: Session, user: models.User) -> None:
+    """
+    Si el usuario tiene un puesto deseado en su perfil, se asegura de que
+    exista una alerta activa para ese puesto y la escanea al instante, para
+    que ya tenga ofertas recomendadas nada mas entrar al dashboard.
+    """
+    if not user.puesto_deseado:
+        return
+
+    existing = (
+        db.query(models.Alert)
+        .filter(
+            models.Alert.user_id == user.id,
+            models.Alert.termino == user.puesto_deseado,
+        )
+        .first()
+    )
+    if existing:
+        return
+
+    alerta = models.Alert(
+        user_id=user.id,
+        termino=user.puesto_deseado,
+        ubicacion=user.ubicacion_preferida or "Cualquiera",
+        modalidad=user.modalidad_preferida or "Cualquiera",
+        fuente="Adzuna",
+        activo=True,
+    )
+    db.add(alerta)
+    db.commit()
+    db.refresh(alerta)
+
+    try:
+        scan_single_alert(db, alerta)
+    except Exception as scan_error:
+        print(f"Error al generar recomendaciones iniciales para {user.email}: {scan_error}")
 
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
@@ -35,10 +74,18 @@ def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         email=email,
         nombre=payload.nombre,
         password_hash=hash_password(payload.password),
+        puesto_deseado=payload.puesto_deseado,
+        ubicacion_preferida=payload.ubicacion_preferida or "Cualquiera",
+        modalidad_preferida=payload.modalidad_preferida or "Cualquiera",
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Recomendaciones instantaneas: si ya dio un puesto deseado al registrarse,
+    # generamos y escaneamos su alerta ya mismo.
+    _ensure_profile_alert(db, user)
+
     return user
 
 
@@ -60,4 +107,21 @@ def login_user(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=schemas.User)
 def read_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=schemas.User)
+def update_me(
+    payload: schemas.UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+
+    # Si acaba de completar/cambiar el puesto deseado, generamos recomendaciones ya.
+    _ensure_profile_alert(db, current_user)
+
     return current_user

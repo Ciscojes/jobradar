@@ -1,0 +1,34 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Base de datos local
+*.db
+
+# Pytest
+.pytest_cache/
+
+# Variables de entorno
+.env
+
+# VS Code
+.vscode/
+
+# Sistema
+.DS_Store
+
+# Archivos personales
+README-JESUSPC.md
+requirements-JESUSPC.txt
+
+app/*-JESUSPC.py
+app/routers/*-JESUSPC.py
+app/services/*-JESUSPC.py
+
+tests/*-JESUSPC.py

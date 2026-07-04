@@ -71,16 +71,33 @@ def render_auth() -> None:
 
     with register_tab:
         with st.form("register_form"):
+            st.markdown("**Datos de acceso**")
             nombre = st.text_input("Nombre")
             email = st.text_input("Email", key="register_email")
             password = st.text_input("Contraseña", type="password", key="register_password")
+
+            st.markdown("---")
+            st.markdown("**Tu perfil profesional** (para recomendarte ofertas desde ya)")
+            col_puesto, col_ubicacion, col_modalidad = st.columns(3)
+            puesto_deseado = col_puesto.text_input("Puesto que buscas", placeholder="Python Developer")
+            ubicacion_preferida = col_ubicacion.text_input("Ubicación preferida", value="Cualquiera")
+            modalidad_preferida = col_modalidad.selectbox(
+                "Modalidad", ["Cualquiera", "Remoto", "Híbrido", "Presencial"]
+            )
             submitted = st.form_submit_button("Crear cuenta")
         if submitted:
             try:
                 api_request(
                     "POST",
                     "/auth/register",
-                    json={"nombre": nombre, "email": email, "password": password},
+                    json={
+                        "nombre": nombre,
+                        "email": email,
+                        "password": password,
+                        "puesto_deseado": puesto_deseado or None,
+                        "ubicacion_preferida": ubicacion_preferida or "Cualquiera",
+                        "modalidad_preferida": modalidad_preferida,
+                    },
                 )
                 token = api_request(
                     "POST",
@@ -187,19 +204,21 @@ def render_scraper_runs() -> None:
         st.info("Todavía no hay ejecuciones registradas.")
         return
 
+    runs_df = pd.DataFrame(runs)
+    columnas_deseadas = [
+        "started_at",
+        "finished_at",
+        "source",
+        "status",
+        "duration_seconds",
+        "offers_found",
+        "new_offers",
+        "new_matches",
+        "error_message",
+    ]
+    columnas_disponibles = [c for c in columnas_deseadas if c in runs_df.columns]
     st.dataframe(
-        pd.DataFrame(runs)[
-            [
-                "started_at",
-                "finished_at",
-                "query",
-                "status",
-                "offers_found",
-                "new_offers",
-                "new_matches",
-                "error_message",
-            ]
-        ],
+        runs_df[columnas_disponibles],
         hide_index=True,
         use_container_width=True,
     )
@@ -341,6 +360,83 @@ def render_channels() -> None:
     )
 
 
+def render_profile() -> None:
+    user = api_request("GET", "/auth/me")
+
+    inicial = (user.get("nombre") or user["email"])[0].upper()
+
+    header = st.container(border=True)
+    with header:
+        col_avatar, col_info = st.columns([1, 6])
+        with col_avatar:
+            st.markdown(
+                f"""
+                <div style="width:64px;height:64px;border-radius:50%;
+                background-color:#0f4c81;color:white;display:flex;
+                align-items:center;justify-content:center;font-size:28px;
+                font-weight:bold;">{inicial}</div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col_info:
+            st.markdown(f"### {user.get('nombre') or 'Sin nombre'}")
+            st.caption(user["email"])
+            if user.get("puesto_deseado"):
+                st.markdown(f"🎯 Buscando: **{user['puesto_deseado']}**")
+            else:
+                st.warning("Aún no has indicado qué puesto buscas — hazlo abajo para recibir recomendaciones ya.")
+
+    st.markdown("### Editar perfil")
+    with st.form("profile_form"):
+        col1, col2 = st.columns(2)
+        nombre = col1.text_input("Nombre", value=user.get("nombre") or "")
+        nivel_experiencia = col2.selectbox(
+            "Nivel de experiencia",
+            ["Junior", "Semi-senior", "Senior"],
+            index=["Junior", "Semi-senior", "Senior"].index(user.get("nivel_experiencia"))
+            if user.get("nivel_experiencia") in ["Junior", "Semi-senior", "Senior"]
+            else 0,
+        )
+
+        col3, col4, col5 = st.columns(3)
+        puesto_deseado = col3.text_input(
+            "Puesto que buscas", value=user.get("puesto_deseado") or "", placeholder="Python Developer"
+        )
+        ubicacion_preferida = col4.text_input(
+            "Ubicación preferida", value=user.get("ubicacion_preferida") or "Cualquiera"
+        )
+        modalidades = ["Cualquiera", "Remoto", "Híbrido", "Presencial"]
+        modalidad_actual = user.get("modalidad_preferida") or "Cualquiera"
+        modalidad_preferida = col5.selectbox(
+            "Modalidad",
+            modalidades,
+            index=modalidades.index(modalidad_actual) if modalidad_actual in modalidades else 0,
+        )
+
+        bio = st.text_area("Sobre ti", value=user.get("bio") or "", placeholder="Breve resumen profesional...")
+
+        guardar = st.form_submit_button("Guardar perfil")
+
+    if guardar:
+        try:
+            api_request(
+                "PATCH",
+                "/auth/me",
+                json={
+                    "nombre": nombre or None,
+                    "puesto_deseado": puesto_deseado or None,
+                    "ubicacion_preferida": ubicacion_preferida or "Cualquiera",
+                    "modalidad_preferida": modalidad_preferida,
+                    "nivel_experiencia": nivel_experiencia,
+                    "bio": bio or None,
+                },
+            )
+            st.success("Perfil actualizado. Revisa la pestaña Ofertas, ya deberían aparecer recomendaciones.")
+            st.rerun()
+        except RuntimeError as error:
+            st.error(str(error))
+
+
 def main() -> None:
     if "access_token" not in st.session_state:
         render_auth()
@@ -353,9 +449,11 @@ def main() -> None:
         st.session_state.pop("access_token", None)
         st.rerun()
 
-    offers_tab, alerts_tab, channels_tab, scraper_tab = st.tabs(
-        ["Ofertas", "Alertas", "Canales", "Scraper"]
+    profile_tab, offers_tab, alerts_tab, channels_tab, scraper_tab = st.tabs(
+        ["Perfil", "Ofertas", "Alertas", "Canales", "Scraper"]
     )
+    with profile_tab:
+        render_profile()
     with offers_tab:
         render_offers()
     with alerts_tab:

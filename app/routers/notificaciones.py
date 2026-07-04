@@ -49,6 +49,30 @@ def create_channel(
     db.add(channel)
     db.commit()
     db.refresh(channel)
+
+    # Mensaje de bienvenida automatico: en cuanto el usuario conecta un canal,
+    # le llega confirmacion de que JobRadar ya puede notificarle por ahi.
+    if channel.is_active:
+        nombre = current_user.nombre or current_user.email
+        try:
+            send_channel_notification(
+                db,
+                channel,
+                subject="¡Bienvenido a JobRadar!",
+                body=(
+                    f"Hola {nombre}, tu canal de {channel.type} ya está conectado. "
+                    "A partir de ahora recibirás aquí las ofertas que coincidan con tus alertas."
+                ),
+                markdown_body=(
+                    f"*¡Bienvenido a JobRadar, {nombre}!*\n\n"
+                    f"Tu canal de *{channel.type}* ya está conectado. "
+                    "A partir de ahora recibirás aquí las ofertas que coincidan con tus alertas."
+                ),
+            )
+            db.commit()
+        except Exception as welcome_error:
+            print(f"Error al enviar bienvenida al canal {channel.id}: {welcome_error}")
+
     return channel
 
 

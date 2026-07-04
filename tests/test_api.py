@@ -216,7 +216,7 @@ def test_crud_completo_alertas(db_session):
             categoria="Backend",
             salario_minimo=30000,
             modalidad="Remoto",
-            fuente="InfoJobs",
+            fuente="Adzuna",
             activo=True,
         ),
         db=db_session,
@@ -301,14 +301,14 @@ def test_modelos_saas_basicos(db_session):
         categoria="Tecnologia",
         salario_minimo=30000,
         modalidad="Remoto",
-        fuente="InfoJobs",
+        fuente="Adzuna",
     )
     job_offer = models.JobOffer(
         title="Python Developer",
         company="JobRadar Labs",
         location="Madrid",
         salary="30000",
-        source="InfoJobs",
+        source="Adzuna",
         url="https://example.com/python-model",
     )
     db_session.add_all([alert, job_offer])
@@ -322,7 +322,7 @@ def test_modelos_saas_basicos(db_session):
         status="pending",
         message="Notificacion simulada",
     )
-    scraper_run = models.ScraperRun(source="InfoJobs", status="success", offers_found=1)
+    scraper_run = models.ScraperRun(source="Adzuna", status="success", offers_found=1)
     db_session.add_all([notification, scraper_run])
     db_session.commit()
 

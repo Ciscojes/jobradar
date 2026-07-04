@@ -52,7 +52,7 @@ def test_run_sync_task_guarda_ofertas_y_notifica_solo_alertas_activas(monkeypatc
         "salario": "No especificado",
         "descripcion": "APIs con FastAPI",
         "enlace": "https://example.com/python-madrid",
-        "fuente": "InfoJobs",
+        "fuente": "Adzuna",
         "estado": "guardado",
         "fecha_publicacion": "2026-06-28",
     }
@@ -70,7 +70,7 @@ def test_run_sync_task_guarda_ofertas_y_notifica_solo_alertas_activas(monkeypatc
     }
     sent_messages = []
 
-    monkeypatch.setattr(main_module, "fetch_infojobs_offers", lambda query, limit: [matching_offer])
+    monkeypatch.setattr(main_module, "fetch_adzuna_offers", lambda query, limit: [matching_offer])
     monkeypatch.setattr(main_module, "fetch_indeed_offers", lambda query, limit: [non_matching_offer])
     monkeypatch.setattr(main_module, "send_telegram_notification", sent_messages.append)
 
@@ -98,13 +98,13 @@ def test_run_sync_task_no_duplica_ofertas_existentes(monkeypatch):
         "salario": "No especificado",
         "descripcion": "APIs con FastAPI",
         "enlace": "https://example.com/python-duplicate",
-        "fuente": "InfoJobs",
+        "fuente": "Adzuna",
         "estado": "guardado",
         "fecha_publicacion": "2026-06-28",
     }
     sent_messages = []
 
-    monkeypatch.setattr(main_module, "fetch_infojobs_offers", lambda query, limit: [offer])
+    monkeypatch.setattr(main_module, "fetch_adzuna_offers", lambda query, limit: [offer])
     monkeypatch.setattr(main_module, "fetch_indeed_offers", lambda query, limit: [])
     monkeypatch.setattr(main_module, "send_telegram_notification", sent_messages.append)
 

@@ -4,6 +4,7 @@ from typing import List
 from ..database import get_db
 from .. import models, schemas
 from ..deps import get_current_user
+from ..services.scheduler import scan_single_alert
 
 router = APIRouter(
     prefix="/alertas",
@@ -39,6 +40,15 @@ def create_alerta(
     db.add(db_alerta)
     db.commit()
     db.refresh(db_alerta)
+
+    # Busqueda inmediata: no esperamos al siguiente intervalo del scheduler
+    # para que el usuario vea ofertas recomendadas nada mas crear la alerta.
+    if db_alerta.activo:
+        try:
+            scan_single_alert(db, db_alerta)
+        except Exception as scan_error:
+            print(f"Error al escanear ofertas para la alerta {db_alerta.id}: {scan_error}")
+
     return db_alerta
 
 
@@ -76,6 +86,12 @@ def activar_alerta(
     db_alerta.activo = True
     db.commit()
     db.refresh(db_alerta)
+
+    try:
+        scan_single_alert(db, db_alerta)
+    except Exception as scan_error:
+        print(f"Error al escanear ofertas para la alerta {db_alerta.id}: {scan_error}")
+
     return db_alerta
 
 

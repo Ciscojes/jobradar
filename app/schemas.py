@@ -8,6 +8,9 @@ class UserCreate(BaseModel):
     email: str
     password: str = Field(min_length=8)
     nombre: Optional[str] = None
+    puesto_deseado: Optional[str] = None
+    ubicacion_preferida: Optional[str] = "Cualquiera"
+    modalidad_preferida: Optional[str] = "Cualquiera"
 
 
 class UserLogin(BaseModel):
@@ -21,8 +24,22 @@ class User(BaseModel):
     nombre: Optional[str] = None
     is_active: bool
     created_at: datetime
+    puesto_deseado: Optional[str] = None
+    ubicacion_preferida: Optional[str] = None
+    modalidad_preferida: Optional[str] = None
+    nivel_experiencia: Optional[str] = None
+    bio: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileUpdate(BaseModel):
+    nombre: Optional[str] = None
+    puesto_deseado: Optional[str] = None
+    ubicacion_preferida: Optional[str] = None
+    modalidad_preferida: Optional[str] = None
+    nivel_experiencia: Optional[str] = None
+    bio: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -83,14 +100,44 @@ class Alerta(AlertaBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- schemas para Canales de notificacion ---
+class NotificationChannelBase(BaseModel):
+    type: str  # "telegram" | "email"
+    destination: str
+    is_active: Optional[bool] = True
+
+
+class NotificationChannelCreate(NotificationChannelBase):
+    pass
+
+
+class NotificationChannelUpdate(BaseModel):
+    type: Optional[str] = None
+    destination: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class NotificationChannel(NotificationChannelBase):
+    id: int
+    user_id: int
+    verified_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class NotificationLog(BaseModel):
     id: int
     user_id: int
     alert_id: Optional[int] = None
     job_offer_id: Optional[int] = None
-    channel: str
+    user_oferta_id: Optional[int] = None
+    channel_id: Optional[int] = None
+    channel_type: Optional[str] = None
+    destination: Optional[str] = None
     status: str
-    message: Optional[str] = None
+    error_message: Optional[str] = None
+    sent_at: Optional[datetime] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -105,6 +152,7 @@ class ScraperRun(BaseModel):
     duration_seconds: int = 0
     offers_found: int = 0
     new_offers: int = 0
+    new_matches: int = 0
     error_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

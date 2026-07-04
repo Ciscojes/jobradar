@@ -3,14 +3,16 @@ from fastapi import Depends, FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, Iterable
 
-from .database import engine, Base, SessionLocal
+from sqlalchemy.orm import Session
+
+from .database import engine, Base, SessionLocal, get_db
 from .deps import get_current_user
-from .routers import auth, ofertas, alertas, scheduler
-from .scraper.infojobs import fetch_infojobs_offers
+from .routers import auth, ofertas, alertas, notificaciones, scheduler
+from .scraper.adzuna import fetch_adzuna_offers
 from .scraper.indeed import fetch_indeed_offers
 from .services.telegram import send_telegram_notification
 from .services.scheduler import ensure_scheduler_schema, scheduler_service
-from . import models
+from . import models, schemas
 
 # Crear las tablas de la base de datos automáticamente
 Base.metadata.create_all(bind=engine)
@@ -28,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="jobradar API",
-    description="API para centralizar ofertas de empleo de Infojobs e Indeed y enviar alertas por Telegram.",
+    description="API para centralizar ofertas de empleo de Adzuna e Indeed y enviar alertas por Telegram.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -46,6 +48,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(ofertas.router)
 app.include_router(alertas.router)
+app.include_router(notificaciones.router)
 app.include_router(scheduler.router)
 
 @app.get("/")
@@ -111,15 +114,15 @@ def build_offer_notification(offer_data: Dict[str, Any]) -> str:
 def run_sync_task(query: str = "python") -> int:
     """
     Función auxiliar para ejecutar la sincronización en segundo plano.
-    Trae ofertas de InfoJobs e Indeed, las guarda en DB y notifica por Telegram si aplica.
+    Trae ofertas de Adzuna e Indeed, las guarda en DB y notifica por Telegram si aplica.
     """
     db = SessionLocal()
     try:
         print(f"Iniciando sincronización para el término: '{query}'")
-        infojobs_offers = fetch_infojobs_offers(query, limit=5)
+        adzuna_offers = fetch_adzuna_offers(query, limit=5)
         indeed_offers = fetch_indeed_offers(query, limit=5)
 
-        all_offers = infojobs_offers + indeed_offers
+        all_offers = adzuna_offers + indeed_offers
         active_alerts = db.query(models.Alerta).filter(models.Alerta.activo.is_(True)).all()
         new_offers_count = 0
 
@@ -159,3 +162,20 @@ def sync_scraper(
         "status": "success",
         "message": f"Sincronización para '{query}' iniciada en segundo plano."
     }
+
+
+@app.get("/scraper/runs", response_model=list[schemas.ScraperRun])
+def read_scraper_runs(
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Historial de ejecuciones del scraper (manuales y del scheduler automático).
+    """
+    return (
+        db.query(models.ScraperRun)
+        .order_by(models.ScraperRun.started_at.desc(), models.ScraperRun.id.desc())
+        .limit(limit)
+        .all()
+    )

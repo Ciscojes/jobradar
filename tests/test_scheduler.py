@@ -41,7 +41,7 @@ def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():
             termino="python",
             ubicacion="Madrid",
             modalidad="Remoto",
-            fuente="InfoJobs",
+            fuente="Adzuna",
             activo=True,
         )
         inactive_alert = models.Alert(
@@ -49,7 +49,7 @@ def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():
             termino="react",
             ubicacion="Barcelona",
             modalidad="Presencial",
-            fuente="InfoJobs",
+            fuente="Adzuna",
             activo=False,
         )
         db.add_all([active_alert, inactive_alert])
@@ -66,7 +66,7 @@ def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():
                     "salario": "No especificado",
                     "descripcion": "APIs con FastAPI",
                     "enlace": "https://example.com/jobs/python-backend",
-                    "fuente": "InfoJobs",
+                    "fuente": "Adzuna",
                     "estado": "guardado",
                     "fecha_publicacion": "2026-06-30",
                 }
@@ -103,19 +103,19 @@ def test_scheduler_registra_error_de_ejecucion():
             models.Alert(
                 user_id=user.id,
                 termino="python",
-                fuente="InfoJobs",
+                fuente="Adzuna",
                 activo=True,
             )
         )
         db.commit()
 
         def failing_search(**kwargs):
-            raise RuntimeError("InfoJobs no disponible")
+            raise RuntimeError("Adzuna no disponible")
 
         scraper_run = run_scheduled_scraper(db=db, search_func=failing_search)
 
         assert scraper_run.status == "error"
-        assert "InfoJobs no disponible" in scraper_run.error_message
+        assert "Adzuna no disponible" in scraper_run.error_message
         assert scraper_run.finished_at is not None
         assert scraper_run.duration_seconds >= 0
     finally:

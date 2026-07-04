@@ -1,35 +1,3 @@
-<<<<<<< HEAD
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from sqlalchemy.sql import func
-from app.database import Base
-
-
-class Oferta(Base):
-    __tablename__ = "ofertas"
-
-    id            = Column(Integer, primary_key=True, index=True)
-    titulo        = Column(String, nullable=False)
-    empresa       = Column(String)
-    ciudad        = Column(String)
-    modalidad     = Column(String)           # remoto / presencial / hibrido
-    salario       = Column(String)
-    tecnologias   = Column(String)           # guardado como string separado por comas
-    url           = Column(String, unique=True)
-    estado        = Column(String, default="sin_revisar")  # sin_revisar / aplicado / guardado / descartado
-    fecha_pub     = Column(String)
-    creado_en     = Column(DateTime, server_default=func.now())
-
-
-class Alerta(Base):
-    __tablename__ = "alertas"
-
-    id        = Column(Integer, primary_key=True, index=True)
-    keyword   = Column(String, nullable=False)
-    ciudad    = Column(String)
-    modalidad = Column(String)
-    activa    = Column(Boolean, default=True)
-    creado_en = Column(DateTime, server_default=func.now())
-=======
 import datetime
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship, synonym
@@ -51,8 +19,20 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)
 
+    # Perfil profesional: se usa para generar automaticamente una alerta y
+    # recomendar ofertas nada mas entrar, sin que el usuario tenga que crearla a mano.
+    puesto_deseado = Column(String, nullable=True)
+    ubicacion_preferida = Column(String, nullable=True, default="Cualquiera")
+    modalidad_preferida = Column(String, nullable=True, default="Cualquiera")
+    nivel_experiencia = Column(String, nullable=True)
+    bio = Column(Text, nullable=True)
+
     alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     notification_logs = relationship("NotificationLog", back_populates="user")
+    notification_channels = relationship(
+        "NotificationChannel", back_populates="user", cascade="all, delete-orphan"
+    )
+    user_ofertas = relationship("UserOferta", back_populates="user", cascade="all, delete-orphan")
 
 
 class JobOffer(Base):
@@ -66,7 +46,7 @@ class JobOffer(Base):
     salario = Column(String, default="No especificado")
     descripcion = Column(Text, nullable=True)
     enlace = Column(String, unique=True, index=True, nullable=False)
-    fuente = Column(String, nullable=False)  # "InfoJobs" or "Indeed"
+    fuente = Column(String, nullable=False)  # "Adzuna" or "Indeed"
     estado = Column(String, default="guardado")  # "guardado", "aplicado", "descartado"
     fecha_publicacion = Column(String, nullable=True)
     creado_en = Column(DateTime, default=utc_now)
@@ -80,6 +60,7 @@ class JobOffer(Base):
     created_at = synonym("creado_en")
 
     notification_logs = relationship("NotificationLog", back_populates="job_offer")
+    user_ofertas = relationship("UserOferta", back_populates="oferta", cascade="all, delete-orphan")
 
 
 class Alert(Base):
@@ -104,6 +85,40 @@ class Alert(Base):
 
     user = relationship("User", back_populates="alerts")
     notification_logs = relationship("NotificationLog", back_populates="alert")
+    user_ofertas = relationship("UserOferta", back_populates="alerta")
+
+
+class NotificationChannel(Base):
+    __tablename__ = "notification_channels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)  # "telegram" | "email"
+    destination = Column(String, nullable=False)  # chat_id o email
+    is_active = Column(Boolean, default=True)
+    verified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", back_populates="notification_channels")
+    notification_logs = relationship("NotificationLog", back_populates="channel_obj")
+
+
+class UserOferta(Base):
+    __tablename__ = "user_ofertas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    oferta_id = Column(Integer, ForeignKey("ofertas.id"), nullable=False, index=True)
+    alerta_id = Column(Integer, ForeignKey("alertas.id"), nullable=True, index=True)
+    estado = Column(String, default="guardado")  # "guardado", "aplicado", "descartado"
+    matched_at = Column(DateTime, default=utc_now)
+    notified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", back_populates="user_ofertas")
+    oferta = relationship("JobOffer", back_populates="user_ofertas")
+    alerta = relationship("Alert", back_populates="user_ofertas")
+    notification_logs = relationship("NotificationLog", back_populates="user_oferta")
 
 
 class NotificationLog(Base):
@@ -113,14 +128,22 @@ class NotificationLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     alert_id = Column(Integer, ForeignKey("alertas.id"), nullable=True, index=True)
     job_offer_id = Column(Integer, ForeignKey("ofertas.id"), nullable=True, index=True)
-    channel = Column(String, nullable=False)
+    user_oferta_id = Column(Integer, ForeignKey("user_ofertas.id"), nullable=True, index=True)
+    channel_id = Column(Integer, ForeignKey("notification_channels.id"), nullable=True, index=True)
+    channel = Column(String, nullable=True)  # legacy: etiqueta libre de canal
+    channel_type = Column(String, nullable=True)  # "telegram" | "email"
+    destination = Column(String, nullable=True)
     status = Column(String, nullable=False)
-    message = Column(Text, nullable=True)
+    message = Column(Text, nullable=True)  # legacy: texto libre
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now)
 
     user = relationship("User", back_populates="notification_logs")
     alert = relationship("Alert", back_populates="notification_logs")
     job_offer = relationship("JobOffer", back_populates="notification_logs")
+    user_oferta = relationship("UserOferta", back_populates="notification_logs")
+    channel_obj = relationship("NotificationChannel", back_populates="notification_logs")
 
 
 class ScraperRun(Base):
@@ -134,9 +157,9 @@ class ScraperRun(Base):
     duration_seconds = Column(Integer, default=0)
     offers_found = Column(Integer, default=0)
     new_offers = Column(Integer, default=0)
+    new_matches = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
 
 
 Oferta = JobOffer
 Alerta = Alert
->>>>>>> cisco/main
