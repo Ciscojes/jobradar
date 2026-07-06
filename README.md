@@ -1,41 +1,37 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=jobradar-py&fontSize=60&fontColor=00FF41&fontAlignY=38&desc=Radar%20de%20ofertas%20de%20empleo%20inteligente&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=JobRadar&fontSize=60&fontColor=00FF41&fontAlignY=38&desc=SaaS%20de%20alertas%20de%20empleo%20multiusuario&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
 </div>
 
 <div align="center">
 
-# 🎯 jobradar
+# 🎯 JobRadar
 
-### _Radar de ofertas de empleo — Infojobs API + filtros personalizados + alertas por Telegram_
+### _Plataforma SaaS que centraliza ofertas de empleo, las cruza con tu perfil y te avisa antes que a nadie_
 
 <br/>
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00?style=for-the-badge&logo=python&logoColor=white)](https://sqlalchemy.org)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
+[![Tests](https://img.shields.io/badge/Tests-24_passing-00FF41?style=for-the-badge&logo=pytest&logoColor=white)](/)
 [![License](https://img.shields.io/badge/License-MIT-00FF41?style=for-the-badge)](LICENSE)
-
-<br/>
-
-[![Status](https://img.shields.io/badge/🚧_Estado-En_Desarrollo-yellow?style=flat-square)](/)
-[![API](https://img.shields.io/badge/📡_API-Infojobs_Oficial-blue?style=flat-square)](https://developer.infojobs.net)
-[![Made with ❤️](https://img.shields.io/badge/Made_with-❤️_en_Madrid-red?style=flat-square)](/)
 
 </div>
 
----
-
 <br/>
 
-## 🧠 ¿Qué es jobradar?
+---
 
-**jobradar-py** es una herramienta Python que conecta con la **API oficial de Infojobs**, centraliza las ofertas en una base de datos local y te avisa por **Telegram** en tiempo real cuando aparece una oferta que encaja con tu perfil.
+## 🧠 ¿Qué es JobRadar?
 
-Sin scraping. Sin bloqueos. Datos limpios, legales y actualizados.
+**JobRadar** es una plataforma SaaS multiusuario que conecta con la **API de Adzuna**, guarda las ofertas en una base de datos propia, las cruza contra el perfil profesional de cada usuario y le notifica en tiempo real por **Telegram** o **email** en cuanto aparece algo que encaja con lo que busca.
 
-> 💡 _Porque tu próximo trabajo no debería encontrarte a ti buscando manualmente._
+No es un scraper frágil que se rompe con cada cambio de HTML: usa una API pública oficial, con autenticación JWT por usuario, base de datos relacional y arquitectura pensada para escalar a producción con Docker.
+
+> 💡 _El objetivo no es que busques trabajo tú — es que el trabajo adecuado te encuentre a ti._
 
 <br/>
 
@@ -44,14 +40,19 @@ Sin scraping. Sin bloqueos. Datos limpios, legales y actualizados.
 ## ✨ Funcionalidades
 
 | Feature | Descripción |
-|--------|-------------|
-| 📡 **Infojobs API Oficial** | Integración directa con la API pública de Infojobs, sin scraping |
-| 🔍 **Filtros avanzados** | Por tecnología, ciudad, modalidad y salario |
-| ⏱️ **Sync automático** | Nuevas ofertas cada X horas con APScheduler |
-| 🔔 **Alertas Telegram** | Notificación instantánea cuando aparece una oferta a tu medida |
-| 📋 **Seguimiento** | Marca ofertas como `aplicado`, `guardado` o `descartado` |
-| 🌐 **API REST** | Endpoints documentados con Swagger UI |
-| 🖥️ **Dashboard** | Interfaz visual con Streamlit para explorar y gestionar ofertas |
+|---|---|
+| 🔐 **Autenticación JWT multiusuario** | Cada usuario tiene su propia sesión, sus propias alertas y sus propias ofertas |
+| 🧑‍💼 **Perfil profesional** | Puesto deseado, ubicación, modalidad y nivel de experiencia — genera recomendaciones automáticamente |
+| ⚡ **Recomendaciones instantáneas** | En cuanto te registras o creas una alerta, se busca y se muestra al momento, sin esperar al scheduler |
+| 📡 **Integración con Adzuna** | Búsqueda de ofertas reales vía API oficial, con datos de prueba automáticos si no hay credenciales |
+| 🔔 **Notificaciones multicanal** | Telegram y email por usuario, con mensaje de bienvenida automático al conectar un canal |
+| ⏱️ **Scheduler automático** | Búsqueda periódica configurable con APScheduler, con historial de cada ejecución |
+| 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
+| 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
+| 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
+| 🧪 **Tests automatizados** | Suite de 24 tests cubriendo auth, alertas, notificaciones y scheduler |
+| 🐳 **Docker-ready** | `docker-compose` con FastAPI + Streamlit + PostgreSQL listos para desplegar |
+| 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
 <br/>
 
@@ -61,12 +62,14 @@ Sin scraping. Sin bloqueos. Datos limpios, legales y actualizados.
 
 ```python
 stack = {
-    "backend":   ["FastAPI", "SQLAlchemy", "APScheduler", "Requests"],
-    "database":  ["SQLite (dev)", "PostgreSQL (prod)"],
-    "frontend":  ["Streamlit"],
-    "alerts":    ["python-telegram-bot"],
-    "api":       ["Infojobs API Oficial"],
-    "devops":    ["Docker", "docker-compose"],
+    "backend":    ["FastAPI", "SQLAlchemy 2.0", "Pydantic", "APScheduler"],
+    "database":   ["SQLite (dev)", "PostgreSQL (prod)", "Alembic (migraciones)"],
+    "frontend":   ["Streamlit"],
+    "auth":       ["JWT", "hashing propio (PBKDF2)"],
+    "alertas":    ["Telegram Bot API", "SMTP / email"],
+    "fuente":     ["Adzuna API"],
+    "testing":    ["Pytest"],
+    "devops":     ["Docker", "docker-compose"],
 }
 ```
 
@@ -77,33 +80,41 @@ stack = {
 ## 📁 Estructura del proyecto
 
 ```
-jobradar-py/
+jobradar/
 │
 ├── 📂 app/
-│   ├── 🐍 main.py               # Punto de entrada FastAPI
-│   ├── 🐍 database.py           # Configuración SQLAlchemy
-│   ├── 🐍 models.py             # Modelos de base de datos
-│   ├── 🐍 schemas.py            # Schemas Pydantic
+│   ├── 🐍 main.py                    # Punto de entrada FastAPI
+│   ├── 🐍 database.py                # Configuración SQLAlchemy
+│   ├── 🐍 models.py                  # Modelos: usuarios, ofertas, alertas, canales, matches
+│   ├── 🐍 schemas.py                 # Schemas Pydantic
+│   │
+│   ├── 📂 core/
+│   │   └── 🐍 security.py            # Hashing de contraseñas, JWT
 │   │
 │   ├── 📂 scraper/
-│   │   ├── 🐍 infojobs.py       # API oficial de Infojobs
-│   │   └── 🐍 indeed.py         # Scraper Indeed España
+│   │   ├── 🐍 adzuna.py              # Integración con la API de Adzuna
+│   │   └── 🐍 indeed.py              # Scraper complementario
 │   │
 │   ├── 📂 routers/
-│   │   ├── 🐍 ofertas.py        # CRUD de ofertas
-│   │   └── 🐍 alertas.py        # Gestión de alertas
+│   │   ├── 🐍 auth.py                # Registro, login, perfil
+│   │   ├── 🐍 ofertas.py             # CRUD de ofertas
+│   │   ├── 🐍 alertas.py             # Alertas + búsqueda instantánea
+│   │   ├── 🐍 notificaciones.py      # Canales de notificación y logs
+│   │   └── 🐍 scheduler.py           # Estado del scheduler
 │   │
 │   └── 📂 services/
-│       ├── 🐍 scheduler.py      # Tareas periódicas
-│       └── 🐍 telegram.py       # Notificaciones Telegram
+│       ├── 🐍 scheduler.py           # Búsqueda automática + matching por usuario
+│       ├── 🐍 notifications.py       # Envío multicanal
+│       ├── 🐍 telegram.py            # Notificaciones por Telegram
+│       └── 🐍 email.py               # Notificaciones por email
 │
 ├── 📂 dashboard/
-│   ├── 🐍 app.py                # App Streamlit
+│   ├── 🐍 main.py                    # App Streamlit (Perfil, Ofertas, Alertas, Canales, Scraper)
 │   └── 📂 components/
 │
-├── 📂 tests/
-│   ├── 🐍 test_api.py
-│   └── 🐍 test_scraper.py
+├── 📂 migrations/                    # Migraciones Alembic versionadas
+│
+├── 📂 tests/                         # 24 tests: API, scheduler, notificaciones, scraper
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
@@ -120,11 +131,11 @@ jobradar-py/
 ### 1️⃣ Clona el repositorio
 
 ```bash
-git clone https://github.com/OLIVER26GOLDEN/jobradar-py.git
-cd jobradar-py
+git clone https://github.com/Ciscojes/jobradar.git
+cd jobradar
 ```
 
-### 2️⃣ Entorno virtual + dependencias
+### 2️⃣ Entorno y dependencias
 
 ```bash
 python -m venv venv
@@ -144,28 +155,40 @@ cp .env.example .env
 # Base de datos
 DATABASE_URL=sqlite:///./jobradar.db
 
-# Infojobs API → https://developer.infojobs.net
-INFOJOBS_CLIENT_ID=tu_client_id
-INFOJOBS_CLIENT_SECRET=tu_client_secret
+# Adzuna API → https://developer.adzuna.com
+ADZUNA_APP_ID=tu_app_id
+ADZUNA_APP_KEY=tu_app_key
+ADZUNA_COUNTRY=es
 
 # Telegram Bot → @BotFather
 TELEGRAM_BOT_TOKEN=tu_token
-TELEGRAM_CHAT_ID=tu_chat_id
+
+# Email SMTP (opcional, se simula si no se configura)
+SMTP_HOST=
+SMTP_USER=
+SMTP_PASSWORD=
 
 # Scheduler
-SCRAPER_INTERVAL_HOURS=6
+SCRAPER_SCHEDULER_ENABLED=true
+SCRAPER_INTERVAL_MINUTES=10
 ```
 
-### 4️⃣ Arranca el servidor
+### 4️⃣ Migra la base de datos
+
+```bash
+alembic upgrade head
+```
+
+### 5️⃣ Arranca la API
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 5️⃣ Abre el dashboard
+### 6️⃣ Abre el dashboard
 
 ```bash
-streamlit run dashboard/app.py
+streamlit run dashboard/main.py
 ```
 
 <br/>
@@ -175,13 +198,27 @@ streamlit run dashboard/app.py
 ## 📡 API Endpoints
 
 ```
-GET    /ofertas              → Lista de ofertas con filtros
-GET    /ofertas/{id}         → Detalle de una oferta
-PATCH  /ofertas/{id}/estado  → Actualiza estado (aplicado / guardado / descartado)
-POST   /alertas              → Crea una alerta personalizada
-GET    /alertas              → Lista de alertas activas
-DELETE /alertas/{id}         → Elimina una alerta
-POST   /scraper/sync         → Sincronización manual con Infojobs
+POST   /auth/register              → Registro (con perfil profesional opcional)
+POST   /auth/login                 → Login, devuelve JWT
+GET    /auth/me                    → Perfil del usuario autenticado
+PATCH  /auth/me                    → Editar perfil (dispara recomendaciones al instante)
+
+GET    /ofertas/                   → Lista de ofertas
+PATCH  /ofertas/{id}/estado        → Actualiza estado (guardado / aplicado / descartado)
+
+POST   /alertas/                   → Crea alerta (busca ofertas al momento)
+GET    /alertas/                   → Lista de alertas
+PATCH  /alertas/{id}/activar       → Reactiva alerta (vuelve a buscar al instante)
+DELETE /alertas/{id}                → Elimina alerta
+
+GET    /notificaciones/canales     → Canales de notificación del usuario
+POST   /notificaciones/canales     → Añade canal (envía bienvenida automática)
+POST   /notificaciones/canales/{id}/test → Prueba de envío
+GET    /notificaciones/logs        → Historial de notificaciones
+
+GET    /scheduler/status           → Estado del scheduler automático
+POST   /scraper/sync               → Sincronización manual
+GET    /scraper/runs               → Historial de ejecuciones del scraper
 ```
 
 📚 Documentación interactiva disponible en: `http://localhost:8000/docs`
@@ -192,17 +229,17 @@ POST   /scraper/sync         → Sincronización manual con Infojobs
 
 ## 🗺️ Roadmap
 
-- [x] Diseño de arquitectura
-- [x] Estructura del proyecto
-- [ ] Integración Infojobs API
-- [ ] Modelos SQLAlchemy
-- [ ] API REST con FastAPI
-- [ ] Alertas por Telegram
-- [ ] Scheduler automático
-- [ ] Dashboard Streamlit
-- [ ] Tests unitarios
-- [ ] Dockerización
-- [ ] Deploy en VPS / Railway
+- [x] Arquitectura multiusuario con JWT
+- [x] Modelos de datos y migraciones versionadas
+- [x] Integración con Adzuna
+- [x] Scheduler automático con matching por usuario
+- [x] Notificaciones multicanal (Telegram + email)
+- [x] Perfil profesional y recomendaciones instantáneas
+- [x] Dashboard completo con Streamlit
+- [x] Suite de tests automatizados
+- [x] Dockerización con docker-compose
+- [ ] Deploy en producción (VPS / Railway)
+- [ ] Panel de estadísticas por usuario
 
 <br/>
 
@@ -213,9 +250,9 @@ POST   /scraper/sync         → Sincronización manual con Infojobs
 <div align="center">
 
 | | Dev | Área |
-|--|-----|------|
-| 🧑‍💻 | [**Oliver Lugo**](https://github.com/OLIVER26GOLDEN) | Backend · FastAPI · Base de datos · Servicios |
-| 🧑‍💻 | [**Jesús Granados**](https://github.com/Ciscojes) | Dashboard · Filtros · Tests |
+|---|---|---|
+| 🧑‍💻 | [**Oliver Lugo**](https://github.com/OLIVER26GOLDEN) | Backend · FastAPI · Base de datos · Integraciones · Scheduler |
+| 🧑‍💻 | [**Jesús Granados**](https://github.com/Ciscojes) | Dashboard · Notificaciones · Tests |
 
 </div>
 
@@ -233,7 +270,7 @@ Distribuido bajo la licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) par
 
 <div align="center">
 
-**¿Te ha resultado útil? Dale una ⭐ al repo — significa mucho.**
+**¿Te ha resultado útil? Dale una ⭐ al repo.**
 
 <br/>
 
