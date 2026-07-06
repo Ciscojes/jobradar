@@ -1,12 +1,16 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=200&section=header&text=JobRadar&fontSize=60&fontColor=00FF41&fontAlignY=38&desc=SaaS%20de%20alertas%20de%20empleo%20multiusuario&descAlignY=58&descColor=ffffff&animation=fadeIn" width="100%"/>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:00FF41,100:0d1117&height=220&section=header&text=JobRadar&fontSize=70&fontColor=ffffff&fontAlignY=35&desc=SaaS%20de%20alertas%20de%20empleo%20multiusuario&descAlignY=55&descColor=ffffff&animation=fadeIn" width="100%"/>
 </div>
 
 <div align="center">
 
-# 🎯 JobRadar
-
 ### _Plataforma SaaS que centraliza ofertas de empleo, las cruza con tu perfil y te avisa antes que a nadie_
+
+<br/>
+
+![Views](https://komarev.com/ghpvc/?username=jobradar-project&color=00FF41&style=for-the-badge&label=REPO+VIEWS)
+[![Status](https://img.shields.io/badge/Status-En_producción-00FF41?style=for-the-badge)](/)
+[![Made in Madrid](https://img.shields.io/badge/Made_in-Madrid_🇪🇸-00FF41?style=for-the-badge)](/)
 
 <br/>
 
@@ -18,6 +22,10 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![Tests](https://img.shields.io/badge/Tests-24_passing-00FF41?style=for-the-badge&logo=pytest&logoColor=white)](/)
 [![License](https://img.shields.io/badge/License-MIT-00FF41?style=for-the-badge)](LICENSE)
+
+<br/>
+
+**[🚀 Instalación](#-instalación-rápida)** · **[📡 API](#-api-endpoints)** · **[🛠️ Stack](#️-stack-tecnológico)** · **[👨‍💻 Equipo](#-equipo)**
 
 </div>
 
@@ -32,6 +40,33 @@
 No es un scraper frágil que se rompe con cada cambio de HTML: usa una API pública oficial, con autenticación JWT por usuario, base de datos relacional y arquitectura pensada para escalar a producción con Docker.
 
 > 💡 _El objetivo no es que busques trabajo tú — es que el trabajo adecuado te encuentre a ti._
+
+<br/>
+
+<div align="center">
+
+| 🔐 Auth JWT | 🧑‍🤝‍🧑 Multiusuario | 🗃️ Migraciones Alembic | 🐳 Docker Compose | 🧪 24 Tests |
+|:---:|:---:|:---:|:---:|:---:|
+| Sesiones seguras por usuario | Escalable a N clientes | Esquema versionado, sin scripts sueltos | Listo para producción | Auth · Alertas · Scheduler |
+
+</div>
+
+<br/>
+
+---
+
+## 🎯 ¿Qué demuestra este proyecto?
+
+Este no es un script de scraping suelto — es una **aplicación SaaS completa de principio a fin**, pensada para simular un producto real en producción:
+
+- **Arquitectura multiusuario real**, con autenticación JWT, permisos por usuario y aislamiento de datos entre cuentas.
+- **Persistencia gestionada correctamente**: modelos relacionales con SQLAlchemy 2.0 y migraciones versionadas con Alembic (nada de `CREATE TABLE` sueltos).
+- **Integración con una API externa real** (Adzuna), con manejo de errores y datos de fallback para desarrollo sin credenciales.
+- **Automatización en segundo plano** con APScheduler: búsqueda periódica, matching por perfil y notificaciones sin intervención manual.
+- **Notificaciones multicanal** (Telegram + email) desacopladas del núcleo de negocio.
+- **Cobertura de tests** sobre autenticación, alertas, scheduler y notificaciones.
+- **Contenedorización completa** con `docker-compose` (API + dashboard + base de datos).
+- **Trabajo colaborativo real**: desarrollo en equipo con control de versiones, ramas y merges entre dos desarrolladores.
 
 <br/>
 
@@ -271,6 +306,15 @@ Distribuido bajo la licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) par
 <div align="center">
 
 **¿Te ha resultado útil? Dale una ⭐ al repo.**
+
+<br/>
+
+### 📬 ¿Hablamos?
+
+Abierto a oportunidades como **Backend / Python Developer** en Madrid.
+
+[![GitHub](https://img.shields.io/badge/GitHub-OLIVER26GOLDEN-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/OLIVER26GOLDEN)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Conectemos-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](#)
 
 <br/>
 
