@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,7 @@ router = APIRouter(
     prefix="/auth",
     tags=["Auth"],
 )
+logger = logging.getLogger(__name__)
 
 
 def _ensure_profile_alert(db: Session, user: models.User) -> None:
@@ -56,7 +59,7 @@ def _ensure_profile_alert(db: Session, user: models.User) -> None:
     try:
         scan_single_alert(db, alerta)
     except Exception as scan_error:
-        print(f"Error al generar recomendaciones iniciales para {user.email}: {scan_error}")
+        logger.exception("Initial recommendations failed for user %s: %s", user.id, scan_error)
 
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)

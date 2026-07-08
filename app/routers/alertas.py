@@ -1,6 +1,9 @@
+import logging
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+
 from ..database import get_db
 from .. import models, schemas
 from ..deps import get_current_user
@@ -10,6 +13,7 @@ router = APIRouter(
     prefix="/alertas",
     tags=["Alertas"]
 )
+logger = logging.getLogger(__name__)
 
 
 def get_user_alert_or_404(db: Session, alerta_id: int, user_id: int) -> models.Alerta:
@@ -47,7 +51,7 @@ def create_alerta(
         try:
             scan_single_alert(db, db_alerta)
         except Exception as scan_error:
-            print(f"Error al escanear ofertas para la alerta {db_alerta.id}: {scan_error}")
+            logger.exception("Alert scan failed for alert %s: %s", db_alerta.id, scan_error)
 
     return db_alerta
 
@@ -90,7 +94,7 @@ def activar_alerta(
     try:
         scan_single_alert(db, db_alerta)
     except Exception as scan_error:
-        print(f"Error al escanear ofertas para la alerta {db_alerta.id}: {scan_error}")
+        logger.exception("Alert scan failed for alert %s: %s", db_alerta.id, scan_error)
 
     return db_alerta
 

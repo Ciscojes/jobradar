@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import engine, Base, SessionLocal, get_db
 from .deps import get_current_user
+from .observability import configure_logging
 from .routers import auth, ofertas, alertas, notificaciones, scheduler
 from .scraper.adzuna import fetch_adzuna_offers
 from .scraper.indeed import fetch_indeed_offers
@@ -17,6 +19,8 @@ from .services.scheduler import ensure_scheduler_schema, scheduler_service
 from . import models, schemas
 
 settings = get_settings()
+configure_logging()
+logger = logging.getLogger(__name__)
 
 if settings.auto_create_tables:
     Base.metadata.create_all(bind=engine)
@@ -135,7 +139,7 @@ def run_sync_task(query: str = "python") -> int:
     """
     db = SessionLocal()
     try:
-        print(f"Iniciando sincronización para el término: '{query}'")
+        logger.info("Starting manual sync for query '%s'", query)
         adzuna_offers = fetch_adzuna_offers(query, limit=5)
         indeed_offers = fetch_indeed_offers(query, limit=5)
 
@@ -156,10 +160,10 @@ def run_sync_task(query: str = "python") -> int:
                 try:
                     send_telegram_notification(build_offer_notification(offer_data))
                 except Exception as telegram_error:
-                    print(f"Error al enviar notificación a Telegram: {telegram_error}")
+                    logger.exception("Telegram notification failed: %s", telegram_error)
 
         db.commit()
-        print(f"Sincronización terminada. Se han guardado {new_offers_count} nuevas ofertas.")
+        logger.info("Manual sync finished with %s new offers", new_offers_count)
         return new_offers_count
     finally:
         db.close()

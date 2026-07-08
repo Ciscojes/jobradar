@@ -1,7 +1,10 @@
+import logging
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 import urllib.parse
+
+logger = logging.getLogger(__name__)
 
 def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str, Any]]:
     """
@@ -69,7 +72,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         return parsed_offers
         
     except Exception as e:
-        print(f"Exception connecting to Indeed: {e}")
+        logger.exception("Indeed connection failed: %s", e)
         return get_mock_indeed_offers(query, limit)
 
 def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:

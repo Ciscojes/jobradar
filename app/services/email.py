@@ -1,6 +1,9 @@
+import logging
 import os
 import smtplib
 from email.message import EmailMessage
+
+logger = logging.getLogger(__name__)
 
 
 def send_email_notification(to_email: str, subject: str, body: str) -> tuple[bool, str, str | None]:
@@ -11,13 +14,7 @@ def send_email_notification(to_email: str, subject: str, body: str) -> tuple[boo
     email_from = os.getenv("EMAIL_FROM") or smtp_user
 
     if not smtp_host or not smtp_user or not smtp_password or not email_from:
-        print(
-            "\n[EMAIL SIMULADO]\n"
-            f"Para: {to_email}\n"
-            f"Asunto: {subject}\n\n"
-            f"{body}\n"
-            "--------------------"
-        )
+        logger.info("Email notification simulated for %s with subject %s", to_email, subject)
         return True, "simulated", None
 
     message = EmailMessage()

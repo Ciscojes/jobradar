@@ -1,5 +1,9 @@
+import logging
 import os
+
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 def send_telegram_notification(text: str, chat_id: str | None = None) -> tuple[bool, str, str | None]:
@@ -15,7 +19,7 @@ def send_telegram_notification(text: str, chat_id: str | None = None) -> tuple[b
     resolved_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
 
     if not bot_token or not resolved_chat_id or bot_token == "tu_token" or resolved_chat_id == "tu_chat_id":
-        print(f"\n[TELEGRAM SIMULADO]\n{text}\n--------------------")
+        logger.info("Telegram notification simulated")
         return True, "simulated", None
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -31,8 +35,8 @@ def send_telegram_notification(text: str, chat_id: str | None = None) -> tuple[b
             return True, "sent", None
         else:
             error = f"{response.status_code} - {response.text}"
-            print(f"Error al enviar notificación de Telegram: {error}")
+            logger.warning("Telegram notification failed: %s", error)
             return False, "failed", error
     except Exception as e:
-        print(f"Exception al conectar con API de Telegram: {e}")
+        logger.exception("Telegram API connection failed: %s", e)
         return False, "failed", str(e)

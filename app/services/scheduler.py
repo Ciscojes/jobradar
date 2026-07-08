@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
@@ -17,6 +18,7 @@ from .notifications import notify_user_offer
 
 SCHEDULER_JOB_ID = "jobradar_adzuna_alerts"
 DEFAULT_INTERVAL_MINUTES = 10
+logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -186,7 +188,7 @@ def _scan_alert(
         try:
             notify_user_offer(db, user_oferta, offer_dict)
         except Exception as notify_error:
-            print(f"Error al notificar al usuario {alert.user_id}: {notify_error}")
+            logger.exception("Offer notification failed for user %s: %s", alert.user_id, notify_error)
 
     return offers_found, new_offers, new_matches
 

@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -12,6 +13,7 @@ router = APIRouter(
     prefix="/notificaciones",
     tags=["Notificaciones"],
 )
+logger = logging.getLogger(__name__)
 
 
 @router.get("/canales", response_model=List[schemas.NotificationChannel])
@@ -71,7 +73,7 @@ def create_channel(
             )
             db.commit()
         except Exception as welcome_error:
-            print(f"Error al enviar bienvenida al canal {channel.id}: {welcome_error}")
+            logger.exception("Welcome notification failed for channel %s: %s", channel.id, welcome_error)
 
     return channel
 

@@ -31,6 +31,7 @@ class Settings:
     docs_enabled: bool
     auth_rate_limit_requests: int
     auth_rate_limit_window_seconds: int
+    log_level: str
 
     @property
     def is_production(self) -> bool:
@@ -58,4 +59,5 @@ def get_settings() -> Settings:
         docs_enabled=_get_bool("DOCS_ENABLED", not is_production),
         auth_rate_limit_requests=_get_int("AUTH_RATE_LIMIT_REQUESTS", 20),
         auth_rate_limit_window_seconds=_get_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
+        log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
     )
