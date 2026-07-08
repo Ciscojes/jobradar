@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -21,7 +22,7 @@ from app.routers.alertas import (
     read_alertas,
     update_alerta,
 )
-from app.routers.ofertas import create_oferta, read_ofertas, update_oferta_estado
+from app.routers.ofertas import create_oferta, read_oferta, read_ofertas, update_oferta_estado
 from app.schemas import (
     AlertaCreate,
     AlertaUpdate,
@@ -160,6 +161,71 @@ def test_crear_y_listar_oferta(db_session):
 
     list_response = read_ofertas(db=db_session)
     assert any(offer.enlace == payload.enlace for offer in list_response)
+
+
+def test_listado_ofertas_respeta_limite(db_session):
+    for index in range(3):
+        db_session.add(
+            models.Oferta(
+                titulo=f"Oferta {index}",
+                empresa="JobRadar Labs",
+                ubicacion="Madrid",
+                modalidad="Remoto",
+                salario="No especificado",
+                descripcion="Desarrollo de APIs con FastAPI.",
+                enlace=f"https://example.com/ofertas/limit-{index}",
+                fuente="Test",
+                estado="guardado",
+            )
+        )
+    db_session.commit()
+
+    response = read_ofertas(limit=2, db=db_session)
+
+    assert len(response) == 2
+
+
+def test_usuario_solo_lee_sus_ofertas_asociadas(db_session):
+    user_a = models.User(email="offers-a@example.com", password_hash="hashed")
+    user_b = models.User(email="offers-b@example.com", password_hash="hashed")
+    offer_a = models.Oferta(
+        titulo="Oferta usuario A",
+        empresa="JobRadar Labs",
+        ubicacion="Madrid",
+        modalidad="Remoto",
+        salario="No especificado",
+        descripcion="Oferta privada para usuario A.",
+        enlace="https://example.com/ofertas/user-a",
+        fuente="Test",
+        estado="guardado",
+    )
+    offer_b = models.Oferta(
+        titulo="Oferta usuario B",
+        empresa="JobRadar Labs",
+        ubicacion="Barcelona",
+        modalidad="Remoto",
+        salario="No especificado",
+        descripcion="Oferta privada para usuario B.",
+        enlace="https://example.com/ofertas/user-b",
+        fuente="Test",
+        estado="guardado",
+    )
+    db_session.add_all([user_a, user_b, offer_a, offer_b])
+    db_session.flush()
+    db_session.add_all(
+        [
+            models.UserOferta(user_id=user_a.id, oferta_id=offer_a.id),
+            models.UserOferta(user_id=user_b.id, oferta_id=offer_b.id),
+        ]
+    )
+    db_session.commit()
+
+    response = read_ofertas(db=db_session, current_user=user_a)
+
+    assert [offer.id for offer in response] == [offer_a.id]
+    with pytest.raises(HTTPException) as exc_info:
+        read_oferta(offer_b.id, db=db_session, current_user=user_a)
+    assert exc_info.value.status_code == 404
 
 
 def test_actualizar_estado_oferta(db_session):

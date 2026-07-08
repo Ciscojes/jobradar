@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
@@ -16,10 +16,23 @@ def read_ofertas(
     empresa: Optional[str] = None,
     ubicacion: Optional[str] = None,
     estado: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit debe estar entre 1 y 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset debe ser mayor o igual que 0")
+
     query = db.query(models.Oferta)
+
+    if isinstance(current_user, models.User):
+        query = (
+            query.join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
+            .filter(models.UserOferta.user_id == current_user.id)
+        )
     
     if q:
         query = query.filter(
@@ -32,8 +45,13 @@ def read_ofertas(
         query = query.filter(models.Oferta.ubicacion.ilike(f"%{ubicacion}%"))
     if estado:
         query = query.filter(models.Oferta.estado == estado)
-        
-    return query.all()
+
+    return (
+        query.order_by(models.Oferta.creado_en.desc(), models.Oferta.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 @router.get("/{oferta_id}", response_model=schemas.Oferta)
 def read_oferta(
@@ -41,7 +59,13 @@ def read_oferta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    db_oferta = db.query(models.Oferta).filter(models.Oferta.id == oferta_id).first()
+    query = db.query(models.Oferta).filter(models.Oferta.id == oferta_id)
+    if isinstance(current_user, models.User):
+        query = (
+            query.join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
+            .filter(models.UserOferta.user_id == current_user.id)
+        )
+    db_oferta = query.first()
     if not db_oferta:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
     return db_oferta
@@ -62,6 +86,15 @@ def create_oferta(
     
     db_oferta = models.Oferta(**oferta.model_dump())
     db.add(db_oferta)
+    db.flush()
+    if isinstance(current_user, models.User):
+        db.add(
+            models.UserOferta(
+                user_id=current_user.id,
+                oferta_id=db_oferta.id,
+                estado=db_oferta.estado,
+            )
+        )
     db.commit()
     db.refresh(db_oferta)
     return db_oferta
@@ -73,7 +106,23 @@ def update_oferta_estado(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    db_oferta = db.query(models.Oferta).filter(models.Oferta.id == oferta_id).first()
+    query = db.query(models.Oferta).filter(models.Oferta.id == oferta_id)
+    user_oferta = None
+    if isinstance(current_user, models.User):
+        query = (
+            query.join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
+            .filter(models.UserOferta.user_id == current_user.id)
+        )
+        user_oferta = (
+            db.query(models.UserOferta)
+            .filter(
+                models.UserOferta.user_id == current_user.id,
+                models.UserOferta.oferta_id == oferta_id,
+            )
+            .first()
+        )
+
+    db_oferta = query.first()
     if not db_oferta:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
     
@@ -85,6 +134,8 @@ def update_oferta_estado(
         )
         
     db_oferta.estado = nuevo_estado
+    if user_oferta is not None:
+        user_oferta.estado = nuevo_estado
     db.commit()
     db.refresh(db_oferta)
     return db_oferta
