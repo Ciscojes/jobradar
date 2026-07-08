@@ -8,7 +8,6 @@ VISIBLE_COLUMNS = [
     "ubicacion",
     "modalidad",
     "salario",
-    "fuente",
     "estado",
     "fecha_publicacion",
     "enlace",
@@ -28,14 +27,13 @@ def render_offers_table(offers: pd.DataFrame) -> None:
     st.dataframe(
         table_data,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "titulo": st.column_config.TextColumn("Titulo"),
             "empresa": st.column_config.TextColumn("Empresa"),
             "ubicacion": st.column_config.TextColumn("Ubicacion"),
             "modalidad": st.column_config.TextColumn("Modalidad"),
             "salario": st.column_config.TextColumn("Salario"),
-            "fuente": st.column_config.TextColumn("Fuente"),
             "estado": st.column_config.TextColumn("Estado"),
             "fecha_publicacion": st.column_config.TextColumn("Fecha publicacion"),
             "enlace": st.column_config.LinkColumn("Oferta"),

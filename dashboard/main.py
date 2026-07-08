@@ -6,16 +6,30 @@ import streamlit as st
 
 from components.filters import render_offer_filters
 from components.metrics import render_offer_metrics
-from components.tables import render_offers_table
 
 
 API_BASE_URL = os.getenv("JOBRADAR_API_URL", "http://localhost:8000").rstrip("/")
 
 
 st.set_page_config(
-    page_title="jobradar Dashboard",
+    page_title="JobRadar",
     layout="wide",
 )
+
+
+STATUS_LABELS = {
+    "guardado": "Me interesa",
+    "aplicado": "Ya apliqué",
+    "descartado": "No encaja",
+}
+
+STATUS_VALUES = {label: value for value, label in STATUS_LABELS.items()}
+
+
+def render_page_header(title: str, subtitle: str | None = None) -> None:
+    st.markdown(f"## {title}")
+    if subtitle:
+        st.caption(subtitle)
 
 
 def api_headers() -> dict[str, str]:
@@ -47,8 +61,8 @@ def api_request(method: str, path: str, **kwargs):
 
 
 def render_auth() -> None:
-    st.title("jobradar")
-    st.caption("Accede para gestionar tus alertas y ofertas")
+    st.title("JobRadar")
+    st.caption("Tus ofertas recomendadas en un solo lugar")
 
     login_tab, register_tab = st.tabs(["Iniciar sesión", "Registro"])
 
@@ -77,7 +91,7 @@ def render_auth() -> None:
             password = st.text_input("Contraseña", type="password", key="register_password")
 
             st.markdown("---")
-            st.markdown("**Tu perfil profesional** (para recomendarte ofertas desde ya)")
+            st.markdown("**Tu búsqueda**")
             col_puesto, col_ubicacion, col_modalidad = st.columns(3)
             puesto_deseado = col_puesto.text_input("Puesto que buscas", placeholder="Python Developer")
             ubicacion_preferida = col_ubicacion.text_input("Ubicación preferida", value="Cualquiera")
@@ -140,10 +154,15 @@ def apply_filters(
 
 
 def render_offers() -> None:
-    st.subheader("Búsqueda de prueba")
-    with st.form("sync_form"):
-        query = st.text_input("Término de búsqueda", value="python")
-        submitted = st.form_submit_button("Ejecutar scraper")
+    render_page_header(
+        "Ofertas recomendadas",
+        "Revisa oportunidades que coinciden con tu perfil y guarda el estado de cada una.",
+    )
+
+    with st.expander("Buscar nuevas ofertas", expanded=False):
+        with st.form("sync_form"):
+            query = st.text_input("Puesto o palabra clave", value="python")
+            submitted = st.form_submit_button("Actualizar recomendaciones")
     if submitted:
         try:
             result = api_request(
@@ -151,49 +170,68 @@ def render_offers() -> None:
                 "/scraper/sync",
                 params={"query": query.strip() or "python"},
             )
-            st.success(result["message"])
+            st.success(result["message"].replace("Sincronización", "Búsqueda"))
         except RuntimeError as error:
             st.error(str(error))
 
     offers = load_offers()
     if offers.empty:
         render_offer_metrics(offers)
-        st.info("Todavía no hay ofertas que coincidan con tus alertas.")
+        st.info("Todavía no hay ofertas guardadas para tu búsqueda.")
         return
 
     keyword, empresa, ubicacion = render_offer_filters(offers)
     filtered_offers = apply_filters(offers, keyword, empresa, ubicacion)
 
     render_offer_metrics(filtered_offers)
-    render_offers_table(filtered_offers)
 
-    st.subheader("Estados")
-    for offer in filtered_offers.to_dict("records"):
-        cols = st.columns([4, 2, 2])
-        cols[0].write(f"{offer['titulo']} - {offer['empresa']}")
-        status_options = ["guardado", "aplicado", "descartado"]
-        current_status = offer["estado"] if offer["estado"] in status_options else "guardado"
-        new_status = cols[1].selectbox(
-            "Estado",
-            status_options,
-            index=status_options.index(current_status),
-            key=f"offer_status_{offer['id']}_{offer.get('user_oferta_id')}",
-            label_visibility="collapsed",
-        )
-        if cols[2].button("Guardar", key=f"save_offer_status_{offer['id']}_{offer.get('user_oferta_id')}"):
-            try:
-                api_request(
-                    "PATCH",
-                    f"/ofertas/{offer['id']}/estado",
-                    json={"estado": new_status},
+    for offer in filtered_offers.head(50).to_dict("records"):
+        current_status = offer["estado"] if offer["estado"] in STATUS_LABELS else "guardado"
+        current_label = STATUS_LABELS[current_status]
+        with st.container(border=True):
+            top_col, status_col = st.columns([5, 2])
+            top_col.markdown(f"### {offer['titulo']}")
+            top_col.caption(
+                " · ".join(
+                    value
+                    for value in [
+                        str(offer.get("empresa") or "Empresa confidencial"),
+                        str(offer.get("ubicacion") or "Ubicación no indicada"),
+                        str(offer.get("modalidad") or "Modalidad no indicada"),
+                    ]
+                    if value
                 )
-                st.rerun()
-            except RuntimeError as error:
-                st.error(str(error))
+            )
+            if offer.get("salario") and offer["salario"] != "No especificado":
+                top_col.write(f"Salario: {offer['salario']}")
+            if offer.get("descripcion"):
+                top_col.write(str(offer["descripcion"])[:260] + ("..." if len(str(offer["descripcion"])) > 260 else ""))
+            if offer.get("enlace"):
+                top_col.link_button("Ver oferta", offer["enlace"])
+
+            new_label = status_col.selectbox(
+                "Estado",
+                list(STATUS_VALUES),
+                index=list(STATUS_VALUES).index(current_label),
+                key=f"offer_status_{offer['id']}_{offer.get('user_oferta_id')}",
+            )
+            if status_col.button(
+                "Guardar",
+                key=f"save_offer_status_{offer['id']}_{offer.get('user_oferta_id')}",
+            ):
+                try:
+                    api_request(
+                        "PATCH",
+                        f"/ofertas/{offer['id']}/estado",
+                        json={"estado": STATUS_VALUES[new_label]},
+                    )
+                    st.rerun()
+                except RuntimeError as error:
+                    st.error(str(error))
 
 
 def render_scraper_runs() -> None:
-    st.subheader("Ejecuciones del scraper")
+    render_page_header("Actividad reciente", "Últimas búsquedas automáticas y manuales.")
     try:
         runs = api_request("GET", "/scraper/runs")
     except RuntimeError as error:
@@ -201,39 +239,41 @@ def render_scraper_runs() -> None:
         return
 
     if not runs:
-        st.info("Todavía no hay ejecuciones registradas.")
+        st.info("Todavía no hay actividad registrada.")
         return
 
     runs_df = pd.DataFrame(runs)
-    columnas_deseadas = [
-        "started_at",
-        "finished_at",
-        "source",
-        "status",
-        "duration_seconds",
-        "offers_found",
-        "new_offers",
-        "new_matches",
-        "error_message",
-    ]
-    columnas_disponibles = [c for c in columnas_deseadas if c in runs_df.columns]
+    runs_df = runs_df.rename(
+        columns={
+            "started_at": "Inicio",
+            "finished_at": "Fin",
+            "status": "Resultado",
+            "duration_seconds": "Duración",
+            "offers_found": "Encontradas",
+            "new_offers": "Nuevas",
+            "new_matches": "Coincidencias",
+            "error_message": "Detalle",
+        }
+    )
+    columnas_deseadas = ["Inicio", "Fin", "Resultado", "Duración", "Encontradas", "Nuevas", "Coincidencias", "Detalle"]
+    columnas_disponibles = [column for column in columnas_deseadas if column in runs_df.columns]
     st.dataframe(
         runs_df[columnas_disponibles],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 
 def render_alerts() -> None:
-    st.subheader("Alertas")
+    render_page_header("Búsquedas guardadas", "Define qué tipo de ofertas quieres recibir.")
     alerts = api_request("GET", "/alertas/")
 
     with st.form("create_alert_form"):
         col_term, col_location, col_modality = st.columns(3)
-        termino = col_term.text_input("Término", placeholder="python, react, data")
+        termino = col_term.text_input("Puesto o palabra clave", placeholder="python, react, data")
         ubicacion = col_location.text_input("Ubicación", value="Cualquiera")
-        modalidad = col_modality.text_input("Modalidad", value="Cualquiera")
-        submitted = st.form_submit_button("Crear alerta")
+        modalidad = col_modality.selectbox("Modalidad", ["Cualquiera", "Remoto", "Híbrido", "Presencial"])
+        submitted = st.form_submit_button("Guardar búsqueda")
     if submitted:
         try:
             api_request(
@@ -251,14 +291,14 @@ def render_alerts() -> None:
             st.error(str(error))
 
     if not alerts:
-        st.info("No tienes alertas configuradas.")
+        st.info("No tienes búsquedas guardadas.")
         return
 
     for alert in alerts:
         with st.form(f"edit_alert_{alert['id']}"):
             cols = st.columns([3, 2, 2, 1, 1])
             termino = cols[0].text_input(
-                "Término",
+                "Puesto o palabra clave",
                 value=alert["termino"],
                 key=f"alert_term_{alert['id']}",
                 label_visibility="collapsed",
@@ -300,14 +340,15 @@ def render_alerts() -> None:
 
 
 def render_channels() -> None:
-    st.subheader("Canales")
+    render_page_header("Avisos", "Elige dónde recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
 
     with st.form("create_channel_form"):
         col_type, col_destination = st.columns([1, 3])
-        channel_type = col_type.selectbox("Tipo", ["telegram", "email"])
-        destination = col_destination.text_input("Destino", placeholder="chat_id o email")
-        submitted = st.form_submit_button("Agregar canal")
+        channel_type_label = col_type.selectbox("Canal", ["Telegram", "Email"])
+        channel_type = channel_type_label.lower()
+        destination = col_destination.text_input("Destino", placeholder="Chat ID o email")
+        submitted = st.form_submit_button("Agregar aviso")
     if submitted:
         try:
             api_request(
@@ -320,12 +361,12 @@ def render_channels() -> None:
             st.error(str(error))
 
     if not channels:
-        st.info("No tienes canales de notificación.")
+        st.info("No tienes avisos configurados.")
         return
 
     for channel in channels:
         cols = st.columns([1, 3, 1, 1, 1])
-        cols[0].write(channel["type"])
+        cols[0].write(channel["type"].title())
         cols[1].write(channel["destination"])
         active = cols[2].toggle("Activo", value=channel["is_active"], key=f"channel_{channel['id']}")
         if active != channel["is_active"]:
@@ -345,22 +386,30 @@ def render_channels() -> None:
             api_request("DELETE", f"/notificaciones/canales/{channel['id']}")
             st.rerun()
 
-    st.subheader("Historial")
+    st.subheader("Historial de avisos")
     logs = api_request("GET", "/notificaciones/logs")
     if not logs:
-        st.info("Todavía no hay notificaciones registradas.")
+        st.info("Todavía no hay avisos enviados.")
         return
 
+    logs_df = pd.DataFrame(logs).rename(
+        columns={
+            "created_at": "Fecha",
+            "channel_type": "Canal",
+            "destination": "Destino",
+            "status": "Resultado",
+            "error_message": "Detalle",
+        }
+    )
     st.dataframe(
-        pd.DataFrame(logs)[
-            ["created_at", "channel_type", "destination", "status", "error_message"]
-        ],
+        logs_df[["Fecha", "Canal", "Destino", "Resultado", "Detalle"]],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 
 def render_profile() -> None:
+    render_page_header("Mi perfil", "Mantén tu búsqueda actualizada para mejorar las recomendaciones.")
     user = api_request("GET", "/auth/me")
 
     inicial = (user.get("nombre") or user["email"])[0].upper()
@@ -372,7 +421,7 @@ def render_profile() -> None:
             st.markdown(
                 f"""
                 <div style="width:64px;height:64px;border-radius:50%;
-                background-color:#0f4c81;color:white;display:flex;
+                background-color:#14532d;color:white;display:flex;
                 align-items:center;justify-content:center;font-size:28px;
                 font-weight:bold;">{inicial}</div>
                 """,
@@ -382,9 +431,9 @@ def render_profile() -> None:
             st.markdown(f"### {user.get('nombre') or 'Sin nombre'}")
             st.caption(user["email"])
             if user.get("puesto_deseado"):
-                st.markdown(f"🎯 Buscando: **{user['puesto_deseado']}**")
+                st.markdown(f"Buscando: **{user['puesto_deseado']}**")
             else:
-                st.warning("Aún no has indicado qué puesto buscas — hazlo abajo para recibir recomendaciones ya.")
+                st.warning("Aún no has indicado qué puesto buscas. Completa tu perfil para recibir recomendaciones.")
 
     st.markdown("### Editar perfil")
     with st.form("profile_form"):
@@ -431,7 +480,7 @@ def render_profile() -> None:
                     "bio": bio or None,
                 },
             )
-            st.success("Perfil actualizado. Revisa la pestaña Ofertas, ya deberían aparecer recomendaciones.")
+            st.success("Perfil actualizado. Revisa tus ofertas recomendadas.")
             st.rerun()
         except RuntimeError as error:
             st.error(str(error))
@@ -442,8 +491,8 @@ def main() -> None:
         render_auth()
         return
 
-    st.title("jobradar")
-    st.caption("Dashboard personal de búsqueda de empleo")
+    st.sidebar.title("JobRadar")
+    st.sidebar.caption("Búsqueda de empleo")
 
     if st.sidebar.button("Cerrar sesión"):
         st.session_state.pop("access_token", None)
@@ -451,19 +500,19 @@ def main() -> None:
 
     section = st.sidebar.radio(
         "Sección",
-        ["Perfil", "Ofertas", "Alertas", "Canales", "Scraper"],
+        ["Mi perfil", "Ofertas", "Búsquedas", "Avisos", "Actividad"],
         label_visibility="collapsed",
     )
 
-    if section == "Perfil":
+    if section == "Mi perfil":
         render_profile()
     elif section == "Ofertas":
         render_offers()
-    elif section == "Alertas":
+    elif section == "Búsquedas":
         render_alerts()
-    elif section == "Canales":
+    elif section == "Avisos":
         render_channels()
-    elif section == "Scraper":
+    elif section == "Actividad":
         render_scraper_runs()
 
 
