@@ -11,6 +11,7 @@ from ..core.security import (
 )
 from ..database import get_db
 from ..deps import get_current_user
+from ..rate_limit import limit_auth_attempts
 from ..services.scheduler import scan_single_alert
 
 
@@ -59,7 +60,11 @@ def _ensure_profile_alert(db: Session, user: models.User) -> None:
 
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
-def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+def register_user(
+    payload: schemas.UserCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(limit_auth_attempts),
+):
     email = normalize_email(payload.email)
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Email inválido")
@@ -90,7 +95,11 @@ def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=schemas.Token)
-def login_user(payload: schemas.UserLogin, db: Session = Depends(get_db)):
+def login_user(
+    payload: schemas.UserLogin,
+    db: Session = Depends(get_db),
+    _: None = Depends(limit_auth_attempts),
+):
     email = normalize_email(payload.email)
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user or not verify_password(payload.password, user.password_hash):

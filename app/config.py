@@ -29,6 +29,8 @@ class Settings:
     cors_origins: tuple[str, ...]
     auto_create_tables: bool
     docs_enabled: bool
+    auth_rate_limit_requests: int
+    auth_rate_limit_window_seconds: int
 
     @property
     def is_production(self) -> bool:
@@ -54,4 +56,6 @@ def get_settings() -> Settings:
         cors_origins=cors_origins,
         auto_create_tables=_get_bool("AUTO_CREATE_TABLES", not is_production),
         docs_enabled=_get_bool("DOCS_ENABLED", not is_production),
+        auth_rate_limit_requests=_get_int("AUTH_RATE_LIMIT_REQUESTS", 20),
+        auth_rate_limit_window_seconds=_get_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
     )
