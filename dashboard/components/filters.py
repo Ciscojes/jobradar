@@ -9,13 +9,11 @@ def _sorted_options(values: pd.Series) -> list[str]:
 
 def render_offer_filters(offers: pd.DataFrame) -> tuple[str, str, str]:
     """Muestra filtros para palabra clave, empresa y ubicacion."""
-    st.subheader("Filtros")
-
     col_keyword, col_empresa, col_ubicacion = st.columns(3)
 
     with col_keyword:
         keyword = st.text_input(
-            "Palabra clave",
+            "Buscar",
             placeholder="Ejemplo: Python, FastAPI, React",
         )
 
@@ -27,7 +25,7 @@ def render_offer_filters(offers: pd.DataFrame) -> tuple[str, str, str]:
 
     with col_ubicacion:
         ubicacion = st.selectbox(
-            "Ubicacion",
+            "Ubicación",
             options=_sorted_options(offers["ubicacion"]),
         )
 

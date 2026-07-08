@@ -10,6 +10,6 @@ def render_offer_metrics(offers: pd.DataFrame) -> None:
 
     col_offers, col_companies, col_locations = st.columns(3)
 
-    col_offers.metric("Total de ofertas", total_offers)
-    col_companies.metric("Total de empresas", total_companies)
-    col_locations.metric("Total de ubicaciones", total_locations)
+    col_offers.metric("Ofertas", total_offers)
+    col_companies.metric("Empresas", total_companies)
+    col_locations.metric("Ubicaciones", total_locations)

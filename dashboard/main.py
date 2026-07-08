@@ -1,3 +1,4 @@
+import html
 import os
 
 import pandas as pd
@@ -26,10 +27,132 @@ STATUS_LABELS = {
 STATUS_VALUES = {label: value for value, label in STATUS_LABELS.items()}
 
 
+APP_CSS = """
+<style>
+    .block-container {
+        max-width: 1180px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+    section[data-testid="stSidebar"] {
+        background: #f8faf8;
+        border-right: 1px solid #e5e7eb;
+    }
+    section[data-testid="stSidebar"] h1 {
+        color: #14532d;
+        font-size: 1.45rem;
+        letter-spacing: 0;
+    }
+    div[data-testid="stMetric"] {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 0.95rem 1rem;
+    }
+    .jr-header {
+        border-bottom: 1px solid #e5e7eb;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+    }
+    .jr-header h2 {
+        margin-bottom: 0.15rem;
+    }
+    .jr-muted {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+    .jr-empty {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-top: 1rem;
+    }
+    .jr-kicker {
+        color: #166534;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+    }
+    .jr-card-title {
+        font-size: 1.08rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .jr-chip {
+        display: inline-block;
+        border: 1px solid #d1d5db;
+        border-radius: 999px;
+        color: #374151;
+        font-size: 0.8rem;
+        margin: 0.15rem 0.2rem 0.15rem 0;
+        padding: 0.18rem 0.55rem;
+    }
+    .jr-status {
+        background: #ecfdf5;
+        border: 1px solid #bbf7d0;
+        border-radius: 999px;
+        color: #166534;
+        display: inline-block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.22rem 0.65rem;
+    }
+</style>
+"""
+
+
+def apply_global_styles() -> None:
+    st.markdown(APP_CSS, unsafe_allow_html=True)
+
+
 def render_page_header(title: str, subtitle: str | None = None) -> None:
-    st.markdown(f"## {title}")
-    if subtitle:
-        st.caption(subtitle)
+    subtitle_html = f'<div class="jr-muted">{subtitle}</div>' if subtitle else ""
+    st.markdown(
+        f"""
+        <div class="jr-header">
+            <h2>{title}</h2>
+            {subtitle_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_empty_state(title: str, body: str, button_label: str | None = None, target_section: str | None = None) -> None:
+    st.markdown(
+        f"""
+        <div class="jr-empty">
+            <div class="jr-card-title">{title}</div>
+            <div class="jr-muted">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if button_label and target_section:
+        st.button(button_label, on_click=set_active_section, args=(target_section,))
+
+
+def set_active_section(section: str) -> None:
+    st.session_state["section"] = section
+
+
+def format_status(status: str | None) -> str:
+    return STATUS_LABELS.get(status or "guardado", "Me interesa")
+
+
+def truncate_text(value: str | None, limit: int = 260) -> str:
+    if not value:
+        return ""
+    clean_value = " ".join(str(value).split())
+    if len(clean_value) <= limit:
+        return clean_value
+    return clean_value[: limit - 3].rstrip() + "..."
+
+
+def safe_html(value: object, fallback: str = "") -> str:
+    return html.escape(str(value or fallback), quote=True)
 
 
 def api_headers() -> dict[str, str]:
@@ -61,10 +184,21 @@ def api_request(method: str, path: str, **kwargs):
 
 
 def render_auth() -> None:
-    st.title("JobRadar")
-    st.caption("Tus ofertas recomendadas en un solo lugar")
-
-    login_tab, register_tab = st.tabs(["Iniciar sesión", "Registro"])
+    left_col, right_col = st.columns([1, 1], gap="large")
+    with left_col:
+        st.markdown(
+            """
+            <div class="jr-kicker">JobRadar</div>
+            <h1>Tus ofertas recomendadas en un solo lugar</h1>
+            <p class="jr-muted">
+                Configura tu búsqueda, revisa oportunidades y guarda el avance de cada candidatura.
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+    with right_col:
+        st.markdown("### Acceso")
+        login_tab, register_tab = st.tabs(["Iniciar sesión", "Registro"])
 
     with login_tab:
         with st.form("login_form"):
@@ -177,40 +311,62 @@ def render_offers() -> None:
     offers = load_offers()
     if offers.empty:
         render_offer_metrics(offers)
-        st.info("Todavía no hay ofertas guardadas para tu búsqueda.")
+        render_empty_state(
+            "Aún no hay ofertas para revisar",
+            "Completa tu perfil o guarda una búsqueda para que JobRadar empiece a traer oportunidades relevantes.",
+            "Completar mi perfil",
+            "Mi perfil",
+        )
         return
 
-    keyword, empresa, ubicacion = render_offer_filters(offers)
+    with st.container(border=True):
+        keyword, empresa, ubicacion = render_offer_filters(offers)
     filtered_offers = apply_filters(offers, keyword, empresa, ubicacion)
 
     render_offer_metrics(filtered_offers)
+
+    if filtered_offers.empty:
+        render_empty_state(
+            "No hay resultados con esos filtros",
+            "Prueba con otra palabra clave, empresa o ubicación para ampliar la lista.",
+        )
+        return
 
     for offer in filtered_offers.head(50).to_dict("records"):
         current_status = offer["estado"] if offer["estado"] in STATUS_LABELS else "guardado"
         current_label = STATUS_LABELS[current_status]
         with st.container(border=True):
             top_col, status_col = st.columns([5, 2])
-            top_col.markdown(f"### {offer['titulo']}")
-            top_col.caption(
-                " · ".join(
-                    value
+            top_col.markdown(
+                f"""
+                <div class="jr-kicker">{safe_html(offer.get("empresa"), "Empresa confidencial")}</div>
+                <div class="jr-card-title">{safe_html(offer.get("titulo"), "Oferta sin título")}</div>
+                """,
+                unsafe_allow_html=True,
+            )
+            top_col.markdown(
+                "".join(
+                    f'<span class="jr-chip">{safe_html(value)}</span>'
                     for value in [
-                        str(offer.get("empresa") or "Empresa confidencial"),
-                        str(offer.get("ubicacion") or "Ubicación no indicada"),
-                        str(offer.get("modalidad") or "Modalidad no indicada"),
+                        offer.get("ubicacion") or "Ubicación no indicada",
+                        offer.get("modalidad") or "Modalidad no indicada",
+                        offer.get("salario") if offer.get("salario") != "No especificado" else None,
                     ]
                     if value
-                )
+                ),
+                unsafe_allow_html=True,
             )
-            if offer.get("salario") and offer["salario"] != "No especificado":
-                top_col.write(f"Salario: {offer['salario']}")
             if offer.get("descripcion"):
-                top_col.write(str(offer["descripcion"])[:260] + ("..." if len(str(offer["descripcion"])) > 260 else ""))
+                top_col.write(truncate_text(offer.get("descripcion")))
             if offer.get("enlace"):
                 top_col.link_button("Ver oferta", offer["enlace"])
 
+            status_col.markdown(
+                f'<span class="jr-status">{format_status(current_status)}</span>',
+                unsafe_allow_html=True,
+            )
             new_label = status_col.selectbox(
-                "Estado",
+                "Seguimiento",
                 list(STATUS_VALUES),
                 index=list(STATUS_VALUES).index(current_label),
                 key=f"offer_status_{offer['id']}_{offer.get('user_oferta_id')}",
@@ -239,7 +395,10 @@ def render_scraper_runs() -> None:
         return
 
     if not runs:
-        st.info("Todavía no hay actividad registrada.")
+        render_empty_state(
+            "Sin actividad todavía",
+            "Cuando actualices recomendaciones o se ejecuten búsquedas guardadas, verás aquí el historial.",
+        )
         return
 
     runs_df = pd.DataFrame(runs)
@@ -291,7 +450,10 @@ def render_alerts() -> None:
             st.error(str(error))
 
     if not alerts:
-        st.info("No tienes búsquedas guardadas.")
+        render_empty_state(
+            "No tienes búsquedas guardadas",
+            "Guarda una búsqueda para revisar nuevas ofertas sin tener que escribir los mismos filtros cada vez.",
+        )
         return
 
     for alert in alerts:
@@ -361,7 +523,10 @@ def render_channels() -> None:
             st.error(str(error))
 
     if not channels:
-        st.info("No tienes avisos configurados.")
+        render_empty_state(
+            "No tienes avisos configurados",
+            "Añade un canal cuando quieras recibir nuevas oportunidades fuera del dashboard.",
+        )
         return
 
     for channel in channels:
@@ -389,7 +554,10 @@ def render_channels() -> None:
     st.subheader("Historial de avisos")
     logs = api_request("GET", "/notificaciones/logs")
     if not logs:
-        st.info("Todavía no hay avisos enviados.")
+        render_empty_state(
+            "Sin avisos enviados",
+            "Cuando tengas canales activos y lleguen nuevas coincidencias, aparecerán en este historial.",
+        )
         return
 
     logs_df = pd.DataFrame(logs).rename(
@@ -416,7 +584,7 @@ def render_profile() -> None:
 
     header = st.container(border=True)
     with header:
-        col_avatar, col_info = st.columns([1, 6])
+        col_avatar, col_info, col_state = st.columns([1, 5, 2])
         with col_avatar:
             st.markdown(
                 f"""
@@ -434,6 +602,8 @@ def render_profile() -> None:
                 st.markdown(f"Buscando: **{user['puesto_deseado']}**")
             else:
                 st.warning("Aún no has indicado qué puesto buscas. Completa tu perfil para recibir recomendaciones.")
+        with col_state:
+            st.markdown('<span class="jr-status">Perfil activo</span>', unsafe_allow_html=True)
 
     st.markdown("### Editar perfil")
     with st.form("profile_form"):
@@ -487,9 +657,14 @@ def render_profile() -> None:
 
 
 def main() -> None:
+    apply_global_styles()
     if "access_token" not in st.session_state:
         render_auth()
         return
+
+    section_options = ["Mi perfil", "Ofertas", "Búsquedas", "Avisos", "Actividad"]
+    if st.session_state.get("section") not in section_options:
+        st.session_state["section"] = "Ofertas"
 
     st.sidebar.title("JobRadar")
     st.sidebar.caption("Búsqueda de empleo")
@@ -500,7 +675,8 @@ def main() -> None:
 
     section = st.sidebar.radio(
         "Sección",
-        ["Mi perfil", "Ofertas", "Búsquedas", "Avisos", "Actividad"],
+        section_options,
+        key="section",
         label_visibility="collapsed",
     )
 
