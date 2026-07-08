@@ -3,14 +3,16 @@ import datetime
 import hashlib
 import hmac
 import json
-import os
 import re
 import secrets
 from typing import Any
 
+from ..config import get_settings
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+settings = get_settings()
+SECRET_KEY = settings.secret_key
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 HASH_ITERATIONS = 210_000
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

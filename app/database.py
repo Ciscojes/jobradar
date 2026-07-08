@@ -1,9 +1,11 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobradar.db")
+from .config import get_settings
+
+
+DATABASE_URL = get_settings().database_url
 
 # For SQLite, we need connect_args={"check_same_thread": False}
 if DATABASE_URL.startswith("sqlite"):

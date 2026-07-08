@@ -3,8 +3,10 @@ from fastapi import Depends, FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, Iterable
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from .config import get_settings
 from .database import engine, Base, SessionLocal, get_db
 from .deps import get_current_user
 from .routers import auth, ofertas, alertas, notificaciones, scheduler
@@ -14,9 +16,11 @@ from .services.telegram import send_telegram_notification
 from .services.scheduler import ensure_scheduler_schema, scheduler_service
 from . import models, schemas
 
-# Crear las tablas de la base de datos automáticamente
-Base.metadata.create_all(bind=engine)
-ensure_scheduler_schema(engine)
+settings = get_settings()
+
+if settings.auto_create_tables:
+    Base.metadata.create_all(bind=engine)
+    ensure_scheduler_schema(engine)
 
 
 @asynccontextmanager
@@ -33,12 +37,15 @@ app = FastAPI(
     description="API para centralizar ofertas de empleo de Adzuna e Indeed y enviar alertas por Telegram.",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
 # Configurar middleware de CORS para conectar con Streamlit u otros orígenes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,7 +66,17 @@ def read_root() -> Dict[str, Any]:
     return {
         "status": "online",
         "message": "Bienvenido al Radar de Ofertas de Empleo Inteligente (jobradar)",
-        "docs": "/docs"
+        "docs": "/docs" if settings.docs_enabled else None,
+    }
+
+
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)) -> Dict[str, str]:
+    db.execute(text("SELECT 1"))
+    return {
+        "status": "ok",
+        "database": "ok",
+        "environment": settings.app_env,
     }
 
 def offer_matches_alert(offer_data: Dict[str, Any], alert: models.Alerta) -> bool:

@@ -9,7 +9,7 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from app import models
 from app.database import Base
-from app.main import app, read_root
+from app.main import app, health_check, read_root
 from app.deps import get_current_user
 from app.routers.auth import login_user, read_me, register_user
 from app.routers.alertas import (
@@ -68,6 +68,13 @@ def test_endpoint_principal_responde():
     response = read_root()
 
     assert response["status"] == "online"
+
+
+def test_health_check_valida_base_de_datos(db_session):
+    response = health_check(db=db_session)
+
+    assert response["status"] == "ok"
+    assert response["database"] == "ok"
 
 
 def test_registro_login_y_usuario_autenticado(db_session):

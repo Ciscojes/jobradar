@@ -52,10 +52,12 @@ services:
       - .env
 
     environment:
+      APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:-jobradar}@postgres:5432/${POSTGRES_DB:-jobradar}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
 
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
       interval: 10s
       timeout: 5s
       retries: 5

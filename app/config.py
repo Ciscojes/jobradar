@@ -1,0 +1,57 @@
+import os
+from dataclasses import dataclass
+from functools import lru_cache
+
+
+def _get_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+@dataclass(frozen=True)
+class Settings:
+    app_env: str
+    database_url: str
+    secret_key: str
+    access_token_expire_minutes: int
+    cors_origins: tuple[str, ...]
+    auto_create_tables: bool
+    docs_enabled: bool
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    is_production = app_env == "production"
+    raw_origins = os.getenv("BACKEND_CORS_ORIGINS", "*")
+    cors_origins = tuple(
+        origin.strip()
+        for origin in raw_origins.split(",")
+        if origin.strip()
+    ) or ("*",)
+
+    return Settings(
+        app_env=app_env,
+        database_url=os.getenv("DATABASE_URL", "sqlite:///./jobradar.db"),
+        secret_key=os.getenv("SECRET_KEY", "dev-secret-change-me"),
+        access_token_expire_minutes=_get_int("ACCESS_TOKEN_EXPIRE_MINUTES", 60),
+        cors_origins=cors_origins,
+        auto_create_tables=_get_bool("AUTO_CREATE_TABLES", not is_production),
+        docs_enabled=_get_bool("DOCS_ENABLED", not is_production),
+    )
