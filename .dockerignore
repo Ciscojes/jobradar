@@ -5,6 +5,9 @@ __pycache__/
 
 .git/
 .gitignore
+.env
+.env.*
+!env.example
 
 .venv/
 venv/
@@ -20,3 +23,8 @@ env/
 htmlcov/
 
 .vscode/
+.agents/
+README-JESUSPC.md
+requirements-JESUSPC.txt
+README*.Zone.Identifier
+*:Zone.Identifier

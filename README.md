@@ -153,7 +153,7 @@ jobradar/
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
-├── 🔒 .env.example
+├── 🔒 env.example
 └── 📖 README.md
 ```
 
@@ -183,7 +183,7 @@ pip install -r requirements.txt
 ### 3️⃣ Variables de entorno
 
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
 ```env
@@ -225,6 +225,22 @@ uvicorn app.main:app --reload
 ```bash
 streamlit run dashboard/main.py
 ```
+
+### 7️⃣ Docker Compose
+
+Para desarrollo local con recarga automática, API, dashboard y PostgreSQL:
+
+```bash
+docker compose up --build
+```
+
+Para un despliegue tipo producción, sin recarga automática ni montajes del código:
+
+```bash
+POSTGRES_PASSWORD=change-me docker compose -f docker-compose.prod.yml up --build -d
+```
+
+En producción usa una contraseña real en `POSTGRES_PASSWORD` y conserva `.env` fuera de git.
 
 <br/>
 

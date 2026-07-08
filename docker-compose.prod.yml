@@ -1,20 +1,13 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: jobradar-postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-jobradar}
       POSTGRES_USER: ${POSTGRES_USER:-jobradar}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobradar}
-
-    ports:
-      - "5432:5432"
-
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - jobradar_postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -27,33 +20,21 @@ services:
       dockerfile: Dockerfile
       args:
         REQUIREMENTS_FILE: requirements-api.txt
-
-    container_name: jobradar-api
     restart: unless-stopped
-
     command: >
       sh -c "alembic upgrade head &&
       uvicorn app.main:app
       --host 0.0.0.0
-      --port 8000
-      --reload"
-
-    ports:
-      - "8000:8000"
-
-    volumes:
-      - .:/code
-
+      --port 8000"
     depends_on:
       postgres:
         condition: service_healthy
-
+    ports:
+      - "${API_PORT:-8000}:8000"
     env_file:
       - .env
-
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:-jobradar}@postgres:5432/${POSTGRES_DB:-jobradar}
-
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-jobradar}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)"]
       interval: 10s
@@ -67,28 +48,19 @@ services:
       dockerfile: Dockerfile
       args:
         REQUIREMENTS_FILE: requirements-dashboard.txt
-
-    container_name: jobradar-dashboard
     restart: unless-stopped
-
     command: >
       streamlit run dashboard/main.py
       --server.address=0.0.0.0
       --server.port=8501
-
-    ports:
-      - "8501:8501"
-
-    volumes:
-      - .:/code
-
+      --server.fileWatcherType=none
     depends_on:
       api:
         condition: service_healthy
-
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
     environment:
       JOBRADAR_API_URL: http://api:8000
-
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/', timeout=5)"]
       interval: 10s
