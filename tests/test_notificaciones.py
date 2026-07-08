@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["TELEGRAM_BOT_TOKEN"] = ""
 
 from app import models
 from app.database import Base

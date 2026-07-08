@@ -449,18 +449,21 @@ def main() -> None:
         st.session_state.pop("access_token", None)
         st.rerun()
 
-    profile_tab, offers_tab, alerts_tab, channels_tab, scraper_tab = st.tabs(
-        ["Perfil", "Ofertas", "Alertas", "Canales", "Scraper"]
+    section = st.sidebar.radio(
+        "Sección",
+        ["Perfil", "Ofertas", "Alertas", "Canales", "Scraper"],
+        label_visibility="collapsed",
     )
-    with profile_tab:
+
+    if section == "Perfil":
         render_profile()
-    with offers_tab:
+    elif section == "Ofertas":
         render_offers()
-    with alerts_tab:
+    elif section == "Alertas":
         render_alerts()
-    with channels_tab:
+    elif section == "Canales":
         render_channels()
-    with scraper_tab:
+    elif section == "Scraper":
         render_scraper_runs()
 
 
