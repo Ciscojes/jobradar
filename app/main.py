@@ -188,6 +188,7 @@ def sync_scraper(
 @app.get("/scraper/runs", response_model=list[schemas.ScraperRun])
 def read_scraper_runs(
     limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -197,6 +198,7 @@ def read_scraper_runs(
     return (
         db.query(models.ScraperRun)
         .order_by(models.ScraperRun.started_at.desc(), models.ScraperRun.id.desc())
+        .offset(offset)
         .limit(limit)
         .all()
     )

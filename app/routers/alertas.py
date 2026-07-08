@@ -29,10 +29,24 @@ def get_user_alert_or_404(db: Session, alerta_id: int, user_id: int) -> models.A
 
 @router.get("/", response_model=List[schemas.Alerta])
 def read_alertas(
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return db.query(models.Alerta).filter(models.Alerta.user_id == current_user.id).all()
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit debe estar entre 1 y 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset debe ser mayor o igual que 0")
+
+    return (
+        db.query(models.Alerta)
+        .filter(models.Alerta.user_id == current_user.id)
+        .order_by(models.Alerta.creado_en.desc(), models.Alerta.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 @router.post("/", response_model=schemas.Alerta, status_code=status.HTTP_201_CREATED)
 def create_alerta(

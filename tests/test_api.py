@@ -276,6 +276,39 @@ def test_crear_y_borrar_alerta(db_session):
     assert delete_response is None
 
 
+def test_listado_alertas_respeta_limite_y_usuario(db_session):
+    user_a = models.User(email="alerts-a@example.com", password_hash="hashed")
+    user_b = models.User(email="alerts-b@example.com", password_hash="hashed")
+    db_session.add_all([user_a, user_b])
+    db_session.flush()
+
+    for index in range(3):
+        db_session.add(
+            models.Alerta(
+                user_id=user_a.id,
+                termino=f"python-{index}",
+                ubicacion="Madrid",
+                modalidad="Remoto",
+                activo=True,
+            )
+        )
+    db_session.add(
+        models.Alerta(
+            user_id=user_b.id,
+            termino="react",
+            ubicacion="Barcelona",
+            modalidad="Remoto",
+            activo=True,
+        )
+    )
+    db_session.commit()
+
+    response = read_alertas(limit=2, db=db_session, current_user=user_a)
+
+    assert len(response) == 2
+    assert all(alert.user_id == user_a.id for alert in response)
+
+
 def test_crud_completo_alertas(db_session):
     current_user = models.User(email="crud-alerts@example.com", password_hash="hashed")
     db_session.add(current_user)

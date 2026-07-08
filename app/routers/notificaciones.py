@@ -18,12 +18,22 @@ logger = logging.getLogger(__name__)
 
 @router.get("/canales", response_model=List[schemas.NotificationChannel])
 def read_channels(
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit debe estar entre 1 y 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset debe ser mayor o igual que 0")
+
     return (
         db.query(models.NotificationChannel)
         .filter(models.NotificationChannel.user_id == current_user.id)
+        .order_by(models.NotificationChannel.created_at.desc(), models.NotificationChannel.id.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
@@ -138,14 +148,22 @@ def test_channel(
 
 @router.get("/logs", response_model=List[schemas.NotificationLog])
 def read_notification_logs(
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit debe estar entre 1 y 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset debe ser mayor o igual que 0")
+
     return (
         db.query(models.NotificationLog)
         .filter(models.NotificationLog.user_id == current_user.id)
-        .order_by(models.NotificationLog.created_at.desc())
-        .limit(100)
+        .order_by(models.NotificationLog.created_at.desc(), models.NotificationLog.id.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 

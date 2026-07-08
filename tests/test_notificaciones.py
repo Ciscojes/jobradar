@@ -95,6 +95,54 @@ def test_crud_canales_de_notificacion(db_session):
     assert read_channels(db=db_session, current_user=user) == []
 
 
+def test_logs_de_notificacion_respetan_limite_y_usuario(db_session):
+    user_a = _crear_usuario_autenticado(db_session, email="logs-a@example.com")
+    user_b = _crear_usuario_autenticado(db_session, email="logs-b@example.com")
+
+    for index in range(3):
+        db_session.add(
+            models.NotificationLog(
+                user_id=user_a.id,
+                channel_type="telegram",
+                destination=str(index),
+                status="simulated",
+            )
+        )
+    db_session.add(
+        models.NotificationLog(
+            user_id=user_b.id,
+            channel_type="telegram",
+            destination="other",
+            status="simulated",
+        )
+    )
+    db_session.commit()
+
+    logs = read_notification_logs(limit=2, db=db_session, current_user=user_a)
+
+    assert len(logs) == 2
+    assert all(log.user_id == user_a.id for log in logs)
+
+
+def test_canales_respetan_limite(db_session):
+    user = _crear_usuario_autenticado(db_session, email="channels-limit@example.com")
+
+    for index in range(3):
+        db_session.add(
+            models.NotificationChannel(
+                user_id=user.id,
+                type="telegram",
+                destination=str(index),
+                is_active=True,
+            )
+        )
+    db_session.commit()
+
+    channels = read_channels(limit=2, db=db_session, current_user=user)
+
+    assert len(channels) == 2
+
+
 def test_tipo_de_canal_invalido_es_rechazado(db_session):
     user = _crear_usuario_autenticado(db_session, email="canal-invalido@example.com")
 
