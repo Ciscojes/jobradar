@@ -122,6 +122,9 @@ class NotificationChannel(NotificationChannelBase):
     user_id: int
     verified_at: Optional[datetime] = None
     created_at: datetime
+    last_notification_status: Optional[str] = None
+    last_notification_at: Optional[datetime] = None
+    last_notification_error: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -80,6 +80,50 @@ def test_crud_canales_de_notificacion(db_session):
     assert read_channels(db=db_session, current_user=user) == []
 
 
+def test_canales_rechazan_destino_duplicado_por_usuario(db_session):
+    user = _crear_usuario_autenticado(db_session, email="duplicado@example.com")
+
+    create_channel(
+        NotificationChannelCreate(type="telegram", destination=" 123456 ", is_active=False),
+        db=db_session,
+        current_user=user,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_channel(
+            NotificationChannelCreate(type="telegram", destination="123456", is_active=False),
+            db=db_session,
+            current_user=user,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Ya tienes" in exc_info.value.detail
+
+
+def test_canales_incluyen_ultimo_aviso(db_session):
+    user = _crear_usuario_autenticado(db_session, email="ultimo-aviso@example.com")
+    channel = create_channel(
+        NotificationChannelCreate(type="telegram", destination="555555", is_active=False),
+        db=db_session,
+        current_user=user,
+    )
+    db_session.add(
+        models.NotificationLog(
+            user_id=user.id,
+            channel_id=channel.id,
+            channel_type="telegram",
+            destination="555555",
+            status="sent",
+        )
+    )
+    db_session.commit()
+
+    channels = read_channels(db=db_session, current_user=user)
+
+    assert channels[0]["last_notification_status"] == "sent"
+    assert channels[0]["last_notification_at"] is not None
+
+
 def test_logs_de_notificacion_respetan_limite_y_usuario(db_session):
     user_a = _crear_usuario_autenticado(db_session, email="logs-a@example.com")
     user_b = _crear_usuario_autenticado(db_session, email="logs-b@example.com")

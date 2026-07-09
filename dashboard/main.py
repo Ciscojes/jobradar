@@ -143,6 +143,16 @@ def format_status(status: str | None) -> str:
     return STATUS_LABELS.get(status or "guardado", "Me interesa")
 
 
+def format_notification_status(status: str | None) -> str:
+    labels = {
+        "sent": "Enviado",
+        "simulated": "Simulado",
+        "failed": "Falló",
+        None: "Sin envíos",
+    }
+    return labels.get(status, status or "Sin envíos")
+
+
 def truncate_text(value: str | None, limit: int = 260) -> str:
     if not value:
         return ""
@@ -320,11 +330,12 @@ def render_offers() -> None:
     if offers.empty:
         render_offer_metrics(offers)
         render_empty_state(
-            "Aún no hay ofertas para revisar",
-            "Completa tu perfil o guarda una búsqueda para que JobRadar empiece a traer oportunidades relevantes.",
-            "Completar mi perfil",
-            "Mi perfil",
+            "Todavía no tienes ofertas recomendadas",
+            "Completa tu perfil o crea una búsqueda. JobRadar traerá oportunidades y te avisará cuando encuentre coincidencias.",
         )
+        col_profile, col_alert = st.columns(2)
+        col_profile.button("Completar perfil", on_click=set_active_section, args=("Mi perfil",))
+        col_alert.button("Crear búsqueda", on_click=set_active_section, args=("Búsquedas",))
         return
 
     status_counts = offers["estado"].fillna("guardado").value_counts().to_dict()
@@ -446,7 +457,7 @@ def render_scraper_runs() -> None:
 
 
 def render_alerts() -> None:
-    render_page_header("Búsquedas guardadas", "Define qué tipo de ofertas quieres recibir.")
+    render_page_header("Búsquedas guardadas", "Dile a JobRadar qué ofertas quieres encontrar.")
     alerts = api_request("GET", "/alertas/")
 
     with st.form("create_alert_form"):
@@ -473,8 +484,8 @@ def render_alerts() -> None:
 
     if not alerts:
         render_empty_state(
-            "No tienes búsquedas guardadas",
-            "Guarda una búsqueda para revisar nuevas ofertas sin tener que escribir los mismos filtros cada vez.",
+            "Aún no tienes búsquedas guardadas",
+            "Crea tu primera búsqueda con un puesto, ubicación y modalidad. Si hay coincidencias, JobRadar las guardará y te enviará avisos por tus canales activos.",
         )
         return
 
@@ -524,7 +535,7 @@ def render_alerts() -> None:
 
 
 def render_channels() -> None:
-    render_page_header("Avisos", "Elige dónde recibir nuevas oportunidades.")
+    render_page_header("Avisos", "Conecta Telegram o email para recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
     bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}"
     created_message = st.session_state.pop("channel_created_message", None)
@@ -533,8 +544,8 @@ def render_channels() -> None:
 
     st.markdown("### Telegram")
     st.info(
-        "Para recibir ofertas por Telegram, abre el bot oficial de JobRadar, pulsa Start y vuelve "
-        "a esta pantalla para conectar tu cuenta."
+        "Abre el bot oficial de JobRadar, pulsa Start y vuelve aquí para conectar tu cuenta. "
+        "No necesitas copiar tokens ni configurar nada técnico."
     )
     col_bot, col_detect = st.columns([2, 1])
     col_bot.link_button(f"Abrir @{TELEGRAM_BOT_USERNAME}", bot_url)
@@ -543,7 +554,7 @@ def render_channels() -> None:
             result = api_request("GET", "/notificaciones/telegram/chats")
             st.session_state["telegram_chats"] = result["chats"]
             if result["chats"]:
-                st.success("Chat detectado. Selecciónalo abajo y agrega el aviso.")
+                st.success("Chat detectado. Selecciona tu Telegram y agrega el aviso.")
             else:
                 st.warning("No encontré chats recientes. Abre el bot, pulsa Start y vuelve a detectar.")
         except RuntimeError as error:
@@ -603,32 +614,55 @@ def render_channels() -> None:
 
     if not channels:
         render_empty_state(
-            "No tienes avisos configurados",
-            "Añade un canal cuando quieras recibir nuevas oportunidades fuera del dashboard.",
+            "No tienes avisos activos",
+            "Conecta Telegram para recibir ofertas aunque no tengas el dashboard abierto. Después de agregarlo, usa Enviar prueba para confirmar que llega.",
         )
         return
 
     for channel in channels:
-        cols = st.columns([1, 3, 1, 1, 1])
-        cols[0].write(channel["type"].title())
-        cols[1].write(channel["destination"])
-        active = cols[2].toggle("Activo", value=channel["is_active"], key=f"channel_{channel['id']}")
-        if active != channel["is_active"]:
-            api_request(
-                "PATCH",
-                f"/notificaciones/canales/{channel['id']}",
-                json={"is_active": active},
+        with st.container(border=True):
+            info_col, action_col = st.columns([3, 2])
+            info_col.markdown(f"**{channel['type'].title()}**")
+            info_col.caption(channel["destination"])
+            info_col.write(
+                f"Último aviso: {format_notification_status(channel.get('last_notification_status'))}"
             )
-            st.rerun()
-        if cols[3].button("Probar", key=f"test_channel_{channel['id']}"):
-            try:
-                result = api_request("POST", f"/notificaciones/canales/{channel['id']}/test")
-                st.success(result["status"])
-            except RuntimeError as error:
-                st.error(str(error))
-        if cols[4].button("Eliminar", key=f"delete_channel_{channel['id']}"):
-            api_request("DELETE", f"/notificaciones/canales/{channel['id']}")
-            st.rerun()
+            if channel.get("last_notification_at"):
+                info_col.caption(f"Registrado: {channel['last_notification_at']}")
+            if channel.get("last_notification_error"):
+                info_col.error(channel["last_notification_error"])
+
+            active = action_col.toggle(
+                "Activo",
+                value=channel["is_active"],
+                key=f"channel_{channel['id']}",
+            )
+            if active != channel["is_active"]:
+                api_request(
+                    "PATCH",
+                    f"/notificaciones/canales/{channel['id']}",
+                    json={"is_active": active},
+                )
+                st.rerun()
+
+            if action_col.button(
+                "Enviar prueba",
+                key=f"test_channel_{channel['id']}",
+                use_container_width=True,
+            ):
+                try:
+                    api_request("POST", f"/notificaciones/canales/{channel['id']}/test")
+                    st.success("Prueba enviada. Revisa Telegram o el historial de avisos.")
+                    st.rerun()
+                except RuntimeError as error:
+                    st.error(str(error))
+            if action_col.button(
+                "Eliminar aviso",
+                key=f"delete_channel_{channel['id']}",
+                use_container_width=True,
+            ):
+                api_request("DELETE", f"/notificaciones/canales/{channel['id']}")
+                st.rerun()
 
     st.subheader("Historial de avisos")
     logs = api_request("GET", "/notificaciones/logs")

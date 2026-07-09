@@ -17,6 +17,55 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
+def _normalize_channel_destination(channel_type: str, destination: str) -> str:
+    normalized = destination.strip()
+    if channel_type == "email":
+        return normalized.lower()
+    return normalized
+
+
+def _channel_to_response(
+    db: Session,
+    channel: models.NotificationChannel,
+) -> dict:
+    last_log = (
+        db.query(models.NotificationLog)
+        .filter(models.NotificationLog.channel_id == channel.id)
+        .order_by(models.NotificationLog.created_at.desc(), models.NotificationLog.id.desc())
+        .first()
+    )
+    return {
+        "id": channel.id,
+        "user_id": channel.user_id,
+        "type": channel.type,
+        "destination": channel.destination,
+        "is_active": channel.is_active,
+        "verified_at": channel.verified_at,
+        "created_at": channel.created_at,
+        "last_notification_status": last_log.status if last_log else None,
+        "last_notification_at": last_log.created_at if last_log else None,
+        "last_notification_error": last_log.error_message if last_log else None,
+    }
+
+
+def _ensure_unique_channel(
+    db: Session,
+    user_id: int,
+    channel_type: str,
+    destination: str,
+    exclude_channel_id: int | None = None,
+) -> None:
+    query = db.query(models.NotificationChannel).filter(
+        models.NotificationChannel.user_id == user_id,
+        models.NotificationChannel.type == channel_type,
+        models.NotificationChannel.destination == destination,
+    )
+    if exclude_channel_id is not None:
+        query = query.filter(models.NotificationChannel.id != exclude_channel_id)
+    if query.first():
+        raise HTTPException(status_code=400, detail="Ya tienes un aviso configurado con ese destino")
+
+
 @router.get("/canales", response_model=List[schemas.NotificationChannel])
 def read_channels(
     limit: int = 50,
@@ -29,7 +78,7 @@ def read_channels(
     if offset < 0:
         raise HTTPException(status_code=400, detail="offset debe ser mayor o igual que 0")
 
-    return (
+    channels = (
         db.query(models.NotificationChannel)
         .filter(models.NotificationChannel.user_id == current_user.id)
         .order_by(models.NotificationChannel.created_at.desc(), models.NotificationChannel.id.desc())
@@ -37,6 +86,7 @@ def read_channels(
         .limit(limit)
         .all()
     )
+    return [_channel_to_response(db, channel) for channel in channels]
 
 
 @router.post(
@@ -49,14 +99,18 @@ def create_channel(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    channel_type = payload.type.lower()
+    channel_type = payload.type.lower().strip()
     if channel_type not in {"telegram", "email"}:
         raise HTTPException(status_code=400, detail="El canal debe ser 'telegram' o 'email'")
+    destination = _normalize_channel_destination(channel_type, payload.destination)
+    if not destination:
+        raise HTTPException(status_code=400, detail="El destino del aviso es obligatorio")
+    _ensure_unique_channel(db, current_user.id, channel_type, destination)
 
     channel = models.NotificationChannel(
         user_id=current_user.id,
         type=channel_type,
-        destination=payload.destination.strip(),
+        destination=destination,
         is_active=payload.is_active,
     )
     db.add(channel)
@@ -117,9 +171,32 @@ def update_channel(
     if not channel:
         raise HTTPException(status_code=404, detail="Canal no encontrado")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        if field == "destination" and isinstance(value, str):
-            value = value.strip()
+    updates = payload.model_dump(exclude_unset=True)
+    new_type = updates.get("type", channel.type)
+    if isinstance(new_type, str):
+        new_type = new_type.lower().strip()
+    if new_type not in {"telegram", "email"}:
+        raise HTTPException(status_code=400, detail="El canal debe ser 'telegram' o 'email'")
+
+    new_destination = updates.get("destination", channel.destination)
+    if isinstance(new_destination, str):
+        new_destination = _normalize_channel_destination(new_type, new_destination)
+    if not new_destination:
+        raise HTTPException(status_code=400, detail="El destino del aviso es obligatorio")
+
+    _ensure_unique_channel(
+        db,
+        current_user.id,
+        new_type,
+        new_destination,
+        exclude_channel_id=channel.id,
+    )
+
+    for field, value in updates.items():
+        if field == "type":
+            value = new_type
+        elif field == "destination":
+            value = new_destination
         setattr(channel, field, value)
 
     db.commit()

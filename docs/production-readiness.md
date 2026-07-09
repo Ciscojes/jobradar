@@ -65,6 +65,19 @@ El usuario final no ve el token.
 
 Antes de producción, rota cualquier token que se haya usado durante pruebas.
 
+## Seguridad final antes de exponerlo
+
+- Rotar `TELEGRAM_BOT_TOKEN`, `SECRET_KEY`, credenciales de Adzuna y SMTP si fueron compartidas durante pruebas.
+- Usar `APP_ENV=production`, `AUTO_CREATE_TABLES=false` y migraciones Alembic.
+- Configurar `BACKEND_CORS_ORIGINS` con el dominio real del dashboard; no usar `*`.
+- Mantener `.env` fuera de git y cargar secretos desde la plataforma.
+- Activar HTTPS obligatorio en API y dashboard.
+- Usar una base PostgreSQL con contraseña fuerte y backups.
+- Mantener `DOCS_ENABLED=false` si Swagger no debe ser público.
+- Ejecutar `scripts/smoke_check.py` después de cada despliegue.
+- Revisar logs de `failed` en notificaciones y errores 401/429.
+- Confirmar que el scheduler corre una sola vez por entorno para evitar duplicar búsquedas.
+
 ## Decisiones pendientes
 
 - Plataforma: VPS, Render, Railway, Fly.io, AWS, GCP, Azure, etc.
