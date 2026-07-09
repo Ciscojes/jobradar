@@ -49,10 +49,16 @@ def get_settings() -> Settings:
         if origin.strip()
     ) or ("*",)
 
+    secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+    if is_production and (
+        secret_key == "dev-secret-change-me" or len(secret_key) < 32
+    ):
+        raise RuntimeError("SECRET_KEY debe configurarse con un valor seguro en producción")
+
     return Settings(
         app_env=app_env,
         database_url=os.getenv("DATABASE_URL", "sqlite:///./jobradar.db"),
-        secret_key=os.getenv("SECRET_KEY", "dev-secret-change-me"),
+        secret_key=secret_key,
         access_token_expire_minutes=_get_int("ACCESS_TOKEN_EXPIRE_MINUTES", 60),
         cors_origins=cors_origins,
         auto_create_tables=_get_bool("AUTO_CREATE_TABLES", not is_production),

@@ -85,7 +85,7 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
 | 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
-| 🧪 **Tests automatizados** | Suite de 37 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
+| 🧪 **Tests automatizados** | Suite de 39 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
 | 🐳 **Docker-ready** | `docker-compose` con FastAPI + Streamlit + PostgreSQL listos para desplegar |
 | 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
@@ -149,7 +149,7 @@ jobradar/
 │
 ├── 📂 migrations/                    # Migraciones Alembic versionadas
 │
-├── 📂 tests/                         # 37 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
+├── 📂 tests/                         # 39 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
@@ -240,10 +240,17 @@ docker compose up --build
 Para un despliegue tipo producción, sin recarga automática ni montajes del código:
 
 ```bash
-POSTGRES_PASSWORD=change-me docker compose -f docker-compose.prod.yml up --build -d
+cp .env.production.example .env
+docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-En producción usa una contraseña real en `POSTGRES_PASSWORD` y conserva `.env` fuera de git.
+En producción usa secretos reales, conserva `.env` fuera de git y ejecuta el smoke test:
+
+```bash
+python scripts/smoke_check.py --api-url http://localhost:8000 --dashboard-url http://localhost:8501
+```
+
+Checklist completo: [docs/production-readiness.md](docs/production-readiness.md).
 
 <br/>
 
