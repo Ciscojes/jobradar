@@ -67,6 +67,7 @@ jobs:
           POSTGRES_PASSWORD=change-me \
           SECRET_KEY=ci-secret-key-with-more-than-32-characters \
           BACKEND_CORS_ORIGINS=http://localhost:8501 \
+          TRUSTED_HOSTS=localhost,127.0.0.1 \
           TELEGRAM_BOT_USERNAME=jobradar_alertas_bot \
             docker compose -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
           cp .env.production.example /tmp/jobradar-env-production.example

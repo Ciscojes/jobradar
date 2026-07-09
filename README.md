@@ -85,7 +85,7 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
 | 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
-| 🧪 **Tests automatizados** | Suite de 41 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
+| 🧪 **Tests automatizados** | Suite de 43 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
 | 🐳 **Docker-ready** | `docker-compose` con FastAPI + Streamlit + PostgreSQL listos para desplegar |
 | 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
@@ -149,7 +149,7 @@ jobradar/
 │
 ├── 📂 migrations/                    # Migraciones Alembic versionadas
 │
-├── 📂 tests/                         # 41 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
+├── 📂 tests/                         # 43 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt

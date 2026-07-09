@@ -10,6 +10,7 @@ Copia `.env.production.example` como `.env` en el entorno de producción y relle
 - `SECRET_KEY`: valor aleatorio de 32+ caracteres.
 - `POSTGRES_PASSWORD` o `DATABASE_URL` si usas una base gestionada.
 - `BACKEND_CORS_ORIGINS`: URL pública del dashboard.
+- `TRUSTED_HOSTS`: hostnames públicos permitidos para la API/dashboard.
 - `TELEGRAM_BOT_TOKEN`: token privado del bot oficial.
 - `TELEGRAM_BOT_USERNAME`: username público del bot, sin `@`.
 - `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY`.
@@ -70,8 +71,10 @@ Antes de producción, rota cualquier token que se haya usado durante pruebas.
 - Rotar `TELEGRAM_BOT_TOKEN`, `SECRET_KEY`, credenciales de Adzuna y SMTP si fueron compartidas durante pruebas.
 - Usar `APP_ENV=production`, `AUTO_CREATE_TABLES=false` y migraciones Alembic.
 - Configurar `BACKEND_CORS_ORIGINS` con el dominio real del dashboard; no usar `*`.
+- Configurar `TRUSTED_HOSTS` con los hostnames reales; no usar `*`.
 - Mantener `.env` fuera de git y cargar secretos desde la plataforma.
 - Activar HTTPS obligatorio en API y dashboard.
+- Mantener activas las cabeceras de seguridad de la API (`nosniff`, `DENY`, `no-referrer`, HSTS en producción).
 - Usar una base PostgreSQL con contraseña fuerte y backups.
 - Mantener `DOCS_ENABLED=false` si Swagger no debe ser público.
 - Ejecutar `scripts/smoke_check.py` después de cada despliegue.
