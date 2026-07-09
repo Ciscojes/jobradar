@@ -1,29 +1,6 @@
-import os
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
+from tests.db import TestingSessionLocal, reset_database
 from app import models
-from app.database import Base
 from app.services.scheduler import get_scheduler_status, run_scheduled_scraper
-
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def reset_database():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
 
 
 def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():

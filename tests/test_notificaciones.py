@@ -2,15 +2,11 @@ import os
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
 
+from tests.db import TestingSessionLocal, reset_database
 from app import models
-from app.database import Base
 from app.deps import get_current_user
 from app.routers.auth import login_user, register_user
 from app.routers.notificaciones import (
@@ -25,20 +21,9 @@ from app.schemas import NotificationChannelCreate, NotificationChannelUpdate, Us
 from app.services.scheduler import run_scheduled_scraper
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
 @pytest.fixture
 def db_session():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    reset_database()
     db = TestingSessionLocal()
     try:
         yield db

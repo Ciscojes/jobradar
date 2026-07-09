@@ -1,13 +1,7 @@
-import os
-
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
+from tests.db import TestingSessionLocal, engine, reset_database as reset_test_database
 from app import models
 from app.database import Base
 from app.main import app, health_check, read_root
@@ -33,14 +27,6 @@ from app.schemas import (
 )
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
 
@@ -55,8 +41,7 @@ def db_session():
 
 @pytest.fixture(autouse=True)
 def reset_database():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    reset_test_database()
     yield
     app.dependency_overrides.clear()
 
