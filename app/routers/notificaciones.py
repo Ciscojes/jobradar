@@ -7,6 +7,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
 from ..services.notifications import send_channel_notification
+from ..services.telegram import get_recent_telegram_chats
 
 
 router = APIRouter(
@@ -55,7 +56,7 @@ def create_channel(
     channel = models.NotificationChannel(
         user_id=current_user.id,
         type=channel_type,
-        destination=payload.destination,
+        destination=payload.destination.strip(),
         is_active=payload.is_active,
     )
     db.add(channel)
@@ -88,6 +89,16 @@ def create_channel(
     return channel
 
 
+@router.get("/telegram/chats")
+def read_recent_telegram_chats(
+    current_user: models.User = Depends(get_current_user),
+):
+    chats, error = get_recent_telegram_chats()
+    if error:
+        raise HTTPException(status_code=502, detail=error)
+    return {"chats": chats, "user_id": current_user.id}
+
+
 @router.patch("/canales/{channel_id}", response_model=schemas.NotificationChannel)
 def update_channel(
     channel_id: int,
@@ -107,6 +118,8 @@ def update_channel(
         raise HTTPException(status_code=404, detail="Canal no encontrado")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "destination" and isinstance(value, str):
+            value = value.strip()
         setattr(channel, field, value)
 
     db.commit()

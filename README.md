@@ -85,7 +85,7 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
 | 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
-| 🧪 **Tests automatizados** | Suite de 35 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
+| 🧪 **Tests automatizados** | Suite de 37 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
 | 🐳 **Docker-ready** | `docker-compose` con FastAPI + Streamlit + PostgreSQL listos para desplegar |
 | 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
@@ -149,7 +149,7 @@ jobradar/
 │
 ├── 📂 migrations/                    # Migraciones Alembic versionadas
 │
-├── 📂 tests/                         # 35 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
+├── 📂 tests/                         # 37 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
@@ -196,8 +196,10 @@ ADZUNA_APP_KEY=tu_app_key
 ADZUNA_COUNTRY=es
 
 # Telegram Bot → @BotFather
-# El chat_id se configura por usuario desde Canales.
+# Token privado del bot oficial. Nunca se muestra al usuario final.
 TELEGRAM_BOT_TOKEN=tu_token
+# Username publico del bot oficial que se muestra en el dashboard.
+TELEGRAM_BOT_USERNAME=jobradar_alertas_bot
 
 # Email SMTP (opcional, se simula si no se configura)
 SMTP_HOST=
@@ -265,6 +267,7 @@ DELETE /alertas/{id}                → Elimina alerta
 
 GET    /notificaciones/canales     → Canales de notificación del usuario
 POST   /notificaciones/canales     → Añade canal (envía bienvenida automática)
+GET    /notificaciones/telegram/chats → Detecta chats recientes del bot oficial
 POST   /notificaciones/canales/{id}/test → Prueba de envío
 GET    /notificaciones/logs        → Historial de notificaciones
 
@@ -274,6 +277,15 @@ GET    /scraper/runs               → Historial de ejecuciones del scraper
 ```
 
 📚 Documentación interactiva disponible en: `http://localhost:8000/docs`
+
+### Conectar Telegram como usuario
+
+1. Entra a `Avisos`.
+2. Abre el bot oficial de JobRadar desde el botón del dashboard.
+3. Pulsa `Start` en Telegram.
+4. Vuelve a JobRadar y pulsa `Detectar mi chat ID`.
+5. Selecciona tu chat detectado y agrega el aviso.
+6. Usa `Probar` para confirmar que aparece como `sent`.
 
 <br/>
 

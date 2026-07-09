@@ -10,6 +10,7 @@ from components.metrics import render_offer_metrics
 
 
 API_BASE_URL = os.getenv("JOBRADAR_API_URL", "http://localhost:8000").rstrip("/")
+TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "jobradar_alertas_bot").strip().lstrip("@")
 
 
 st.set_page_config(
@@ -268,6 +269,7 @@ def apply_filters(
     keyword: str,
     empresa: str,
     ubicacion: str,
+    estado: str,
 ) -> pd.DataFrame:
     filtered = offers.copy()
 
@@ -284,6 +286,9 @@ def apply_filters(
     if ubicacion != "Todas":
         filtered = filtered[filtered["ubicacion"] == ubicacion]
 
+    if estado != "Todas":
+        filtered = filtered[filtered["estado"] == STATUS_VALUES[estado]]
+
     return filtered
 
 
@@ -292,6 +297,9 @@ def render_offers() -> None:
         "Ofertas recomendadas",
         "Revisa oportunidades que coinciden con tu perfil y guarda el estado de cada una.",
     )
+    saved_message = st.session_state.pop("offer_saved_message", None)
+    if saved_message:
+        st.success(saved_message)
 
     with st.expander("Buscar nuevas ofertas", expanded=False):
         with st.form("sync_form"):
@@ -319,9 +327,20 @@ def render_offers() -> None:
         )
         return
 
+    status_counts = offers["estado"].fillna("guardado").value_counts().to_dict()
+    status_cols = st.columns(4)
+    status_cols[0].metric("Todas", len(offers))
+    for index, (status, label) in enumerate(STATUS_LABELS.items(), start=1):
+        status_cols[index].metric(label, int(status_counts.get(status, 0)))
+
     with st.container(border=True):
         keyword, empresa, ubicacion = render_offer_filters(offers)
-    filtered_offers = apply_filters(offers, keyword, empresa, ubicacion)
+        estado = st.radio(
+            "Estado",
+            ["Todas", *STATUS_VALUES.keys()],
+            horizontal=True,
+        )
+    filtered_offers = apply_filters(offers, keyword, empresa, ubicacion, estado)
 
     render_offer_metrics(filtered_offers)
 
@@ -380,6 +399,9 @@ def render_offers() -> None:
                         "PATCH",
                         f"/ofertas/{offer['id']}/estado",
                         json={"estado": STATUS_VALUES[new_label]},
+                    )
+                    st.session_state["offer_saved_message"] = (
+                        f"Estado guardado: {offer.get('titulo') or 'Oferta'} -> {new_label}"
                     )
                     st.rerun()
                 except RuntimeError as error:
@@ -504,23 +526,80 @@ def render_alerts() -> None:
 def render_channels() -> None:
     render_page_header("Avisos", "Elige dónde recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
+    bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}"
+    created_message = st.session_state.pop("channel_created_message", None)
+    if created_message:
+        st.success(created_message)
 
-    with st.form("create_channel_form"):
-        col_type, col_destination = st.columns([1, 3])
-        channel_type_label = col_type.selectbox("Canal", ["Telegram", "Email"])
-        channel_type = channel_type_label.lower()
-        destination = col_destination.text_input("Destino", placeholder="Chat ID o email")
-        submitted = st.form_submit_button("Agregar aviso")
-    if submitted:
+    st.markdown("### Telegram")
+    st.info(
+        "Para recibir ofertas por Telegram, abre el bot oficial de JobRadar, pulsa Start y vuelve "
+        "a esta pantalla para conectar tu cuenta."
+    )
+    col_bot, col_detect = st.columns([2, 1])
+    col_bot.link_button(f"Abrir @{TELEGRAM_BOT_USERNAME}", bot_url)
+    if col_detect.button("Detectar mi chat ID"):
         try:
-            api_request(
-                "POST",
-                "/notificaciones/canales",
-                json={"type": channel_type, "destination": destination, "is_active": True},
-            )
-            st.rerun()
+            result = api_request("GET", "/notificaciones/telegram/chats")
+            st.session_state["telegram_chats"] = result["chats"]
+            if result["chats"]:
+                st.success("Chat detectado. Selecciónalo abajo y agrega el aviso.")
+            else:
+                st.warning("No encontré chats recientes. Abre el bot, pulsa Start y vuelve a detectar.")
         except RuntimeError as error:
             st.error(str(error))
+
+    with st.form("create_channel_form"):
+        channel_type_label = st.selectbox("Canal", ["Telegram", "Email"])
+        channel_type = channel_type_label.lower()
+        detected_chats = st.session_state.get("telegram_chats", [])
+
+        if channel_type == "telegram":
+            if detected_chats:
+                selected_chat = st.selectbox(
+                    "Tu Telegram",
+                    detected_chats,
+                    format_func=lambda chat: f"{chat['name']} ({chat['id']})",
+                )
+                destination = str(selected_chat["id"])
+            else:
+                st.warning(
+                    "Primero abre el bot, pulsa Start y usa Detectar mi chat ID. "
+                    "Si ya lo hiciste, vuelve a detectar."
+                )
+                destination = ""
+                with st.expander("Ingresar chat ID manualmente"):
+                    destination = st.text_input("Chat ID", placeholder="Ejemplo: 1463980165")
+        else:
+            destination = st.text_input("Email", placeholder="tu@email.com")
+
+        submitted = st.form_submit_button("Agregar aviso")
+    if submitted:
+        if not destination.strip():
+            st.error("Falta seleccionar o ingresar el destino del aviso.")
+        else:
+            try:
+                api_request(
+                    "POST",
+                    "/notificaciones/canales",
+                    json={"type": channel_type, "destination": destination, "is_active": True},
+                )
+                st.session_state["channel_created_message"] = (
+                    "Aviso de Telegram conectado. Usa Probar para enviar un mensaje."
+                    if channel_type == "telegram"
+                    else "Aviso por email conectado."
+                )
+                st.rerun()
+            except RuntimeError as error:
+                st.error(str(error))
+
+    if st.session_state.get("telegram_chats"):
+        with st.expander("Chats detectados recientemente"):
+            st.dataframe(
+                pd.DataFrame(st.session_state["telegram_chats"]),
+                hide_index=True,
+                width="stretch",
+            )
 
     if not channels:
         render_empty_state(
