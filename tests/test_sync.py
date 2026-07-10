@@ -53,7 +53,11 @@ def test_run_sync_task_guarda_ofertas_y_notifica_solo_alertas_activas(monkeypatc
 
     monkeypatch.setattr(main_module, "fetch_adzuna_offers", lambda query, limit: [matching_offer])
     monkeypatch.setattr(main_module, "fetch_indeed_offers", lambda query, limit: [non_matching_offer])
-    monkeypatch.setattr(main_module, "send_telegram_notification", sent_messages.append)
+    monkeypatch.setattr(
+        main_module,
+        "notify_user_offer",
+        lambda db, user_offer, offer: sent_messages.append(offer["titulo"]),
+    )
 
     new_count = main_module.run_sync_task("python")
 
@@ -62,7 +66,7 @@ def test_run_sync_task_guarda_ofertas_y_notifica_solo_alertas_activas(monkeypatc
         assert new_count == 2
         assert db.query(models.Oferta).count() == 2
         assert len(sent_messages) == 1
-        assert "Python Backend Developer" in sent_messages[0]
+        assert sent_messages == ["Python Backend Developer"]
     finally:
         db.close()
 
@@ -87,7 +91,11 @@ def test_run_sync_task_no_duplica_ofertas_existentes(monkeypatch):
 
     monkeypatch.setattr(main_module, "fetch_adzuna_offers", lambda query, limit: [offer])
     monkeypatch.setattr(main_module, "fetch_indeed_offers", lambda query, limit: [])
-    monkeypatch.setattr(main_module, "send_telegram_notification", sent_messages.append)
+    monkeypatch.setattr(
+        main_module,
+        "notify_user_offer",
+        lambda db, user_offer, offer: sent_messages.append(offer["titulo"]),
+    )
 
     assert main_module.run_sync_task("python") == 1
     assert main_module.run_sync_task("python") == 0
@@ -95,6 +103,6 @@ def test_run_sync_task_no_duplica_ofertas_existentes(monkeypatch):
     db = TestingSessionLocal()
     try:
         assert db.query(models.Oferta).count() == 1
-        assert len(sent_messages) == 1
+        assert len(sent_messages) == 0
     finally:
         db.close()

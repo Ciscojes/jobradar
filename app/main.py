@@ -15,7 +15,7 @@ from .observability import configure_logging
 from .routers import auth, ofertas, alertas, notificaciones, scheduler
 from .scraper.adzuna import fetch_adzuna_offers
 from .scraper.indeed import fetch_indeed_offers
-from .services.telegram import send_telegram_notification
+from .services.notifications import notify_user_offer
 from .services.scheduler import ensure_scheduler_schema, scheduler_service
 from . import models, schemas
 
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="jobradar API",
-    description="API para centralizar ofertas de empleo de Adzuna e Indeed y enviar alertas por Telegram.",
+    description="API para centralizar ofertas de empleo y enviar alertas por Telegram.",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.docs_enabled else None,
@@ -153,7 +153,8 @@ def build_offer_notification(offer_data: Dict[str, Any]) -> str:
 def run_sync_task(query: str = "python") -> int:
     """
     Función auxiliar para ejecutar la sincronización en segundo plano.
-    Trae ofertas de Adzuna e Indeed, las guarda en DB y notifica por Telegram si aplica.
+    Trae ofertas de Adzuna e Indeed, crea los matches por usuario y notifica
+    mediante los canales activos que cada usuario haya elegido.
     """
     db = SessionLocal()
     try:
@@ -174,11 +175,36 @@ def run_sync_task(query: str = "python") -> int:
             db.add(db_offer)
             new_offers_count += 1
 
-            if should_notify_offer(offer_data, active_alerts):
+            db.flush()
+            for alert in active_alerts:
+                if not offer_matches_alert(offer_data, alert):
+                    continue
+                existing_match = (
+                    db.query(models.UserOferta)
+                    .filter(
+                        models.UserOferta.user_id == alert.user_id,
+                        models.UserOferta.oferta_id == db_offer.id,
+                    )
+                    .first()
+                )
+                if existing_match:
+                    continue
+                user_offer = models.UserOferta(
+                    user_id=alert.user_id,
+                    oferta_id=db_offer.id,
+                    alerta_id=alert.id,
+                    estado="guardado",
+                )
+                db.add(user_offer)
+                db.flush()
                 try:
-                    send_telegram_notification(build_offer_notification(offer_data))
-                except Exception as telegram_error:
-                    logger.exception("Telegram notification failed: %s", telegram_error)
+                    notify_user_offer(db, user_offer, offer_data)
+                except Exception as notification_error:
+                    logger.exception(
+                        "Channel notification failed for user %s: %s",
+                        alert.user_id,
+                        notification_error,
+                    )
 
         db.commit()
         logger.info("Manual sync finished with %s new offers", new_offers_count)

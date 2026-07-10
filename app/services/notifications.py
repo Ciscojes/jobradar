@@ -3,7 +3,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from .. import models
-from .email import send_email_notification
 from .telegram import send_telegram_notification
 
 
@@ -67,8 +66,6 @@ def send_channel_notification(
             markdown_body or body,
             chat_id=channel.destination,
         )
-    elif channel.type == "email":
-        sent, status, error = send_email_notification(channel.destination, subject, body)
     else:
         sent, status, error = False, "failed", f"Canal no soportado: {channel.type}"
 

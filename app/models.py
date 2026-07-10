@@ -93,8 +93,8 @@ class NotificationChannel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    type = Column(String, nullable=False)  # "telegram" | "email"
-    destination = Column(String, nullable=False)  # chat_id o email
+    type = Column(String, nullable=False)  # "telegram"
+    destination = Column(String, nullable=False)  # chat_id
     is_active = Column(Boolean, default=True)
     verified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now)
@@ -131,7 +131,7 @@ class NotificationLog(Base):
     user_oferta_id = Column(Integer, ForeignKey("user_ofertas.id"), nullable=True, index=True)
     channel_id = Column(Integer, ForeignKey("notification_channels.id"), nullable=True, index=True)
     channel = Column(String, nullable=True)  # legacy: etiqueta libre de canal
-    channel_type = Column(String, nullable=True)  # "telegram" | "email"
+    channel_type = Column(String, nullable=True)  # "telegram"
     destination = Column(String, nullable=True)
     status = Column(String, nullable=False)
     message = Column(Text, nullable=True)  # legacy: texto libre

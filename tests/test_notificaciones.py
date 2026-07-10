@@ -177,7 +177,7 @@ def test_tipo_de_canal_invalido_es_rechazado(db_session):
 
     with pytest.raises(HTTPException) as exc_info:
         create_channel(
-            NotificationChannelCreate(type="whatsapp", destination="123456"),
+            NotificationChannelCreate(type="sms", destination="50688887777"),
             db=db_session,
             current_user=user,
         )
@@ -188,7 +188,7 @@ def test_probar_canal_inactivo_es_rechazado(db_session):
     user = _crear_usuario_autenticado(db_session, email="canal-inactivo@example.com")
 
     created = create_channel(
-        NotificationChannelCreate(type="email", destination="test@example.com", is_active=False),
+        NotificationChannelCreate(type="telegram", destination="999999", is_active=False),
         db=db_session,
         current_user=user,
     )

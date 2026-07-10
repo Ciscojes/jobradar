@@ -237,6 +237,46 @@ def test_actualizar_estado_oferta(db_session):
     assert response.estado == "aplicado"
 
 
+def test_estado_oferta_es_independiente_por_usuario(db_session):
+    user_a = models.User(email="state-a@example.com", password_hash="hashed")
+    user_b = models.User(email="state-b@example.com", password_hash="hashed")
+    offer = models.Oferta(
+        titulo="Oferta compartida",
+        empresa="JobRadar Labs",
+        ubicacion="Madrid",
+        enlace="https://example.com/ofertas/shared-state",
+        fuente="Test",
+        estado="guardado",
+    )
+    db_session.add_all([user_a, user_b, offer])
+    db_session.flush()
+    match_a = models.UserOferta(user_id=user_a.id, oferta_id=offer.id, estado="guardado")
+    match_b = models.UserOferta(user_id=user_b.id, oferta_id=offer.id, estado="guardado")
+    db_session.add_all([match_a, match_b])
+    db_session.commit()
+
+    response = update_oferta_estado(
+        offer.id,
+        OfertaUpdateEstado(estado="aplicado"),
+        db=db_session,
+        current_user=user_a,
+    )
+
+    db_session.refresh(offer)
+    db_session.refresh(match_a)
+    db_session.refresh(match_b)
+    assert response.estado == "aplicado"
+    assert offer.estado == "guardado"
+    assert match_a.estado == "aplicado"
+    assert match_b.estado == "guardado"
+    assert read_oferta(offer.id, db=db_session, current_user=user_a).estado == "aplicado"
+    assert read_oferta(offer.id, db=db_session, current_user=user_b).estado == "guardado"
+    assert [item.id for item in read_ofertas(
+        estado="aplicado", db=db_session, current_user=user_a
+    )] == [offer.id]
+    assert read_ofertas(estado="aplicado", db=db_session, current_user=user_b) == []
+
+
 def test_crear_y_borrar_alerta(db_session):
     current_user = models.User(email="alerts@example.com", password_hash="hashed")
     db_session.add(current_user)

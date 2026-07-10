@@ -297,7 +297,19 @@ def apply_filters(
         filtered = filtered[filtered["ubicacion"] == ubicacion]
 
     if estado != "Todas":
-        filtered = filtered[filtered["estado"] == STATUS_VALUES[estado]]
+        # La API guarda valores tecnicos (p. ej. ``guardado``), mientras la
+        # interfaz muestra etiquetas (``Me interesa``). Normalizar ambos lados
+        # evita que espacios, mayusculas o valores nulos oculten ofertas
+        # correctamente guardadas.
+        estados_normalizados = (
+            filtered["estado"]
+            .fillna("guardado")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+        estado_seleccionado = STATUS_VALUES[estado].strip().lower()
+        filtered = filtered[estados_normalizados == estado_seleccionado]
 
     return filtered
 
@@ -338,7 +350,15 @@ def render_offers() -> None:
         col_alert.button("Crear búsqueda", on_click=set_active_section, args=("Búsquedas",))
         return
 
-    status_counts = offers["estado"].fillna("guardado").value_counts().to_dict()
+    status_counts = (
+        offers["estado"]
+        .fillna("guardado")
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .value_counts()
+        .to_dict()
+    )
     status_cols = st.columns(4)
     status_cols[0].metric("Todas", len(offers))
     for index, (status, label) in enumerate(STATUS_LABELS.items(), start=1):
@@ -535,7 +555,7 @@ def render_alerts() -> None:
 
 
 def render_channels() -> None:
-    render_page_header("Avisos", "Conecta Telegram o email para recibir nuevas oportunidades.")
+    render_page_header("Avisos", "Conecta Telegram para recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
     bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}"
     created_message = st.session_state.pop("channel_created_message", None)
@@ -561,28 +581,24 @@ def render_channels() -> None:
             st.error(str(error))
 
     with st.form("create_channel_form"):
-        channel_type_label = st.selectbox("Canal", ["Telegram", "Email"])
-        channel_type = channel_type_label.lower()
+        channel_type = "telegram"
         detected_chats = st.session_state.get("telegram_chats", [])
 
-        if channel_type == "telegram":
-            if detected_chats:
-                selected_chat = st.selectbox(
-                    "Tu Telegram",
-                    detected_chats,
-                    format_func=lambda chat: f"{chat['name']} ({chat['id']})",
-                )
-                destination = str(selected_chat["id"])
-            else:
-                st.warning(
-                    "Primero abre el bot, pulsa Start y usa Detectar mi chat ID. "
-                    "Si ya lo hiciste, vuelve a detectar."
-                )
-                destination = ""
-                with st.expander("Ingresar chat ID manualmente"):
-                    destination = st.text_input("Chat ID", placeholder="Ejemplo: 1463980165")
+        if detected_chats:
+            selected_chat = st.selectbox(
+                "Tu Telegram",
+                detected_chats,
+                format_func=lambda chat: f"{chat['name']} ({chat['id']})",
+            )
+            destination = str(selected_chat["id"])
         else:
-            destination = st.text_input("Email", placeholder="tu@email.com")
+            st.warning(
+                "Primero abre el bot, pulsa Start y usa Detectar mi chat ID. "
+                "Si ya lo hiciste, vuelve a detectar."
+            )
+            destination = ""
+            with st.expander("Ingresar chat ID manualmente"):
+                destination = st.text_input("Chat ID", placeholder="Ejemplo: 1463980165")
 
         submitted = st.form_submit_button("Agregar aviso")
     if submitted:
@@ -593,12 +609,16 @@ def render_channels() -> None:
                 api_request(
                     "POST",
                     "/notificaciones/canales",
-                    json={"type": channel_type, "destination": destination, "is_active": True},
+                    json={
+                        "type": channel_type,
+                        "destination": destination,
+                        "is_active": True,
+                    },
                 )
                 st.session_state["channel_created_message"] = (
                     "Aviso de Telegram conectado. Usa Probar para enviar un mensaje."
                     if channel_type == "telegram"
-                    else "Aviso por email conectado."
+                    else "Aviso conectado."
                 )
                 st.rerun()
             except RuntimeError as error:
@@ -652,7 +672,7 @@ def render_channels() -> None:
             ):
                 try:
                     api_request("POST", f"/notificaciones/canales/{channel['id']}/test")
-                    st.success("Prueba enviada. Revisa Telegram o el historial de avisos.")
+                    st.success("Prueba enviada. Revisa el canal o el historial de avisos.")
                     st.rerun()
                 except RuntimeError as error:
                     st.error(str(error))

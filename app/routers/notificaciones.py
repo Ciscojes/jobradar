@@ -18,10 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_channel_destination(channel_type: str, destination: str) -> str:
-    normalized = destination.strip()
-    if channel_type == "email":
-        return normalized.lower()
-    return normalized
+    return destination.strip()
 
 
 def _channel_to_response(
@@ -100,8 +97,8 @@ def create_channel(
     current_user: models.User = Depends(get_current_user),
 ):
     channel_type = payload.type.lower().strip()
-    if channel_type not in {"telegram", "email"}:
-        raise HTTPException(status_code=400, detail="El canal debe ser 'telegram' o 'email'")
+    if channel_type != "telegram":
+        raise HTTPException(status_code=400, detail="El canal debe ser 'telegram'")
     destination = _normalize_channel_destination(channel_type, payload.destination)
     if not destination:
         raise HTTPException(status_code=400, detail="El destino del aviso es obligatorio")
@@ -175,8 +172,8 @@ def update_channel(
     new_type = updates.get("type", channel.type)
     if isinstance(new_type, str):
         new_type = new_type.lower().strip()
-    if new_type not in {"telegram", "email"}:
-        raise HTTPException(status_code=400, detail="El canal debe ser 'telegram' o 'email'")
+    if new_type != "telegram":
+        raise HTTPException(status_code=400, detail="El canal debe ser 'telegram'")
 
     new_destination = updates.get("destination", channel.destination)
     if isinstance(new_destination, str):

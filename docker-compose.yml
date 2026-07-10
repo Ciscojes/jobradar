@@ -91,6 +91,10 @@ services:
     environment:
       JOBRADAR_API_URL: http://api:8000
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jobradar_alertas_bot}
+      # El usuario no privilegiado de la imagen tiene /nonexistent como HOME.
+      # Streamlit necesita un directorio escribible para sus datos internos.
+      HOME: /tmp
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
 
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/', timeout=5)"]

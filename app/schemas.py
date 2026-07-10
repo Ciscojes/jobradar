@@ -102,7 +102,7 @@ class Alerta(AlertaBase):
 
 # --- schemas para Canales de notificacion ---
 class NotificationChannelBase(BaseModel):
-    type: str  # "telegram" | "email"
+    type: str  # "telegram"
     destination: str
     is_active: Optional[bool] = True
 

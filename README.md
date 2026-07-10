@@ -35,7 +35,7 @@
 
 ## 🧠 ¿Qué es JobRadar?
 
-**JobRadar** es una plataforma SaaS multiusuario que conecta con la **API de Adzuna**, guarda las ofertas en una base de datos propia, las cruza contra el perfil profesional de cada usuario y le notifica en tiempo real por **Telegram** o **email** en cuanto aparece algo que encaja con lo que busca.
+**JobRadar** es una plataforma SaaS multiusuario que conecta con la **API de Adzuna**, guarda las ofertas en una base de datos propia, las cruza contra el perfil profesional de cada usuario y le notifica en tiempo real por **Telegram** en cuanto aparece algo que encaja con lo que busca.
 
 No es un scraper frágil que se rompe con cada cambio de HTML: usa una API pública oficial, con autenticación JWT por usuario, base de datos relacional y arquitectura pensada para escalar a producción con Docker.
 
@@ -63,7 +63,7 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 - **Persistencia gestionada correctamente**: modelos relacionales con SQLAlchemy 2.0 y migraciones versionadas con Alembic (nada de `CREATE TABLE` sueltos).
 - **Integración con una API externa real** (Adzuna), con manejo de errores y datos de fallback para desarrollo sin credenciales.
 - **Automatización en segundo plano** con APScheduler: búsqueda periódica, matching por perfil y notificaciones sin intervención manual.
-- **Notificaciones multicanal** (Telegram + email) desacopladas del núcleo de negocio.
+- **Notificaciones por Telegram** desacopladas del núcleo de negocio.
 - **Cobertura de tests** sobre autenticación, alertas, scheduler y notificaciones.
 - **Contenedorización completa** con `docker-compose` (API + dashboard + base de datos).
 - **Trabajo colaborativo real**: desarrollo en equipo con control de versiones, ramas y merges entre dos desarrolladores.
@@ -80,7 +80,7 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 | 🧑‍💼 **Perfil profesional** | Puesto deseado, ubicación, modalidad y nivel de experiencia — genera recomendaciones automáticamente |
 | ⚡ **Recomendaciones instantáneas** | En cuanto te registras o creas una alerta, se busca y se muestra al momento, sin esperar al scheduler |
 | 📡 **Integración con Adzuna** | Búsqueda de ofertas reales vía API oficial, con datos de prueba automáticos si no hay credenciales |
-| 🔔 **Notificaciones multicanal** | Telegram y email por usuario, con mensaje de bienvenida automático al conectar un canal |
+| 🔔 **Notificaciones** | Telegram por usuario, con mensaje de bienvenida automático al conectar el canal |
 | ⏱️ **Scheduler automático** | Búsqueda periódica configurable con APScheduler, con historial de cada ejecución |
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
@@ -101,7 +101,7 @@ stack = {
     "database":   ["SQLite (dev)", "PostgreSQL (prod)", "Alembic (migraciones)"],
     "frontend":   ["Streamlit"],
     "auth":       ["JWT", "hashing propio (PBKDF2)"],
-    "alertas":    ["Telegram Bot API", "SMTP / email"],
+    "alertas":    ["Telegram Bot API"],
     "fuente":     ["Adzuna API"],
     "testing":    ["Pytest"],
     "devops":     ["Docker", "docker-compose"],
@@ -141,7 +141,6 @@ jobradar/
 │       ├── 🐍 scheduler.py           # Búsqueda automática + matching por usuario
 │       ├── 🐍 notifications.py       # Envío multicanal
 │       ├── 🐍 telegram.py            # Notificaciones por Telegram
-│       └── 🐍 email.py               # Notificaciones por email
 │
 ├── 📂 dashboard/
 │   ├── 🐍 main.py                    # App Streamlit (Perfil, Ofertas, Alertas, Canales, Scraper)
@@ -201,10 +200,6 @@ TELEGRAM_BOT_TOKEN=tu_token
 # Username publico del bot oficial que se muestra en el dashboard.
 TELEGRAM_BOT_USERNAME=jobradar_alertas_bot
 
-# Email SMTP (opcional, se simula si no se configura)
-SMTP_HOST=
-SMTP_USER=
-SMTP_PASSWORD=
 
 # Scheduler
 SCRAPER_SCHEDULER_ENABLED=true
@@ -304,7 +299,7 @@ GET    /scraper/runs               → Historial de ejecuciones del scraper
 - [x] Modelos de datos y migraciones versionadas
 - [x] Integración con Adzuna
 - [x] Scheduler automático con matching por usuario
-- [x] Notificaciones multicanal (Telegram + email)
+- [x] Notificaciones por Telegram
 - [x] Perfil profesional y recomendaciones instantáneas
 - [x] Dashboard completo con Streamlit
 - [x] Suite de tests automatizados

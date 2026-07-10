@@ -10,6 +10,14 @@ router = APIRouter(
     tags=["Ofertas"]
 )
 
+
+def _oferta_con_estado_usuario(
+    oferta: models.Oferta,
+    estado: str,
+) -> schemas.Oferta:
+    """Serializa una oferta usando el estado privado del usuario."""
+    return schemas.Oferta.model_validate(oferta).model_copy(update={"estado": estado})
+
 @router.get("/", response_model=List[schemas.Oferta])
 def read_ofertas(
     q: Optional[str] = None,
@@ -30,7 +38,8 @@ def read_ofertas(
 
     if isinstance(current_user, models.User):
         query = (
-            query.join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
+            db.query(models.Oferta, models.UserOferta.estado)
+            .join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
             .filter(models.UserOferta.user_id == current_user.id)
         )
     
@@ -44,14 +53,25 @@ def read_ofertas(
     if ubicacion:
         query = query.filter(models.Oferta.ubicacion.ilike(f"%{ubicacion}%"))
     if estado:
-        query = query.filter(models.Oferta.estado == estado)
+        estado_column = (
+            models.UserOferta.estado
+            if isinstance(current_user, models.User)
+            else models.Oferta.estado
+        )
+        query = query.filter(estado_column == estado)
 
-    return (
+    results = (
         query.order_by(models.Oferta.creado_en.desc(), models.Oferta.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
+    if isinstance(current_user, models.User):
+        return [
+            _oferta_con_estado_usuario(oferta, estado_usuario)
+            for oferta, estado_usuario in results
+        ]
+    return results
 
 @router.get("/{oferta_id}", response_model=schemas.Oferta)
 def read_oferta(
@@ -62,9 +82,17 @@ def read_oferta(
     query = db.query(models.Oferta).filter(models.Oferta.id == oferta_id)
     if isinstance(current_user, models.User):
         query = (
-            query.join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
+            db.query(models.Oferta, models.UserOferta.estado)
+            .join(models.UserOferta, models.UserOferta.oferta_id == models.Oferta.id)
             .filter(models.UserOferta.user_id == current_user.id)
+            .filter(models.Oferta.id == oferta_id)
         )
+        result = query.first()
+        if not result:
+            raise HTTPException(status_code=404, detail="Oferta no encontrada")
+        db_oferta, estado_usuario = result
+        return _oferta_con_estado_usuario(db_oferta, estado_usuario)
+
     db_oferta = query.first()
     if not db_oferta:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
@@ -133,9 +161,15 @@ def update_oferta_estado(
             detail="Estado inválido. Debe ser 'guardado', 'aplicado' o 'descartado'"
         )
         
-    db_oferta.estado = nuevo_estado
-    if user_oferta is not None:
+    if isinstance(current_user, models.User):
+        if user_oferta is None:
+            raise HTTPException(status_code=404, detail="Oferta no encontrada")
         user_oferta.estado = nuevo_estado
+    else:
+        db_oferta.estado = nuevo_estado
     db.commit()
     db.refresh(db_oferta)
+    if user_oferta is not None:
+        db.refresh(user_oferta)
+        return _oferta_con_estado_usuario(db_oferta, user_oferta.estado)
     return db_oferta
