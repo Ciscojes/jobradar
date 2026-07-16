@@ -107,7 +107,7 @@ def test_scheduler_status_devuelve_ultima_ejecucion_y_conteo():
         run_scheduled_scraper(db=db, search_func=lambda **kwargs: [])
         status = get_scheduler_status(db)
 
-        assert status["last_run"].status == "success"
+        assert status["last_run"]["status"] == "success"
         assert status["execution_count"] == 1
         assert "status" in status
         assert "next_run" in status

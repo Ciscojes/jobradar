@@ -305,7 +305,6 @@ def run_scheduled_scraper(
         db.commit()
         db.refresh(scraper_run)
         return scraper_run
-        return scraper_run
     finally:
         if owns_session:
             db.close()
@@ -382,7 +381,20 @@ def get_scheduler_status(db: Session) -> dict[str, Any]:
     next_run = scheduler_service.next_run_time()
 
     return {
-        "last_run": last_run,
+        "last_run": {
+            "id": last_run.id,
+            "source": last_run.source,
+            "status": last_run.status,
+            "started_at": last_run.started_at,
+            "finished_at": last_run.finished_at,
+            "duration_seconds": last_run.duration_seconds,
+            "offers_found": last_run.offers_found,
+            "new_offers": last_run.new_offers,
+            "new_matches": last_run.new_matches,
+            "error_message": last_run.error_message,
+        }
+        if last_run
+        else None,
         "next_run": next_run,
         "execution_count": execution_count,
         "status": scheduler_service.state(),

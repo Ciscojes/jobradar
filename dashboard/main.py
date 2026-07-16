@@ -30,75 +30,292 @@ STATUS_VALUES = {label: value for value, label in STATUS_LABELS.items()}
 
 APP_CSS = """
 <style>
+    :root {
+        --jr-bg: #f6f8fb;
+        --jr-surface: #ffffff;
+        --jr-surface-muted: #f1f5f9;
+        --jr-border: #e2e8f0;
+        --jr-text: #111827;
+        --jr-muted: #64748b;
+        --jr-green: #10b981;
+        --jr-green-dark: #047857;
+        --jr-green-soft: #dcfce7;
+        --jr-sidebar: #111827;
+        --jr-sidebar-soft: #1f2937;
+        --jr-danger: #ef4444;
+    }
+    .stApp {
+        background: var(--jr-bg);
+        color: var(--jr-text);
+    }
     .block-container {
         max-width: 1180px;
-        padding-top: 2rem;
+        padding-top: 2.25rem;
         padding-bottom: 3rem;
     }
-    section[data-testid="stSidebar"] {
-        background: #f8faf8;
-        border-right: 1px solid #e5e7eb;
-    }
-    section[data-testid="stSidebar"] h1 {
-        color: #14532d;
-        font-size: 1.45rem;
+    h1, h2, h3, h4, h5, h6, p, label, span {
         letter-spacing: 0;
     }
-    div[data-testid="stMetric"] {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+        border-right: 1px solid #1f2937;
+    }
+    section[data-testid="stSidebar"] h1 {
+        color: var(--jr-green);
+        font-size: 1.35rem;
+        letter-spacing: 0;
+    }
+    section[data-testid="stSidebar"] p {
+        color: #cbd5e1;
+    }
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] span {
+        color: #e5e7eb;
+    }
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.7rem;
+    }
+    section[data-testid="stSidebar"] button {
+        background: transparent;
+        border: 1px solid #334155;
+        color: #f8fafc;
+        justify-content: flex-start;
+        min-height: 2.65rem;
+        width: 100%;
+    }
+    section[data-testid="stSidebar"] button:hover {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: var(--jr-green);
+        color: #d1d5db;
+    }
+    section[data-testid="stSidebar"] hr {
+        border-color: #1f2937;
+        margin: 1.25rem 0;
+    }
+    .jr-sidebar-brand {
+        padding: 1.35rem 0 0.6rem;
+    }
+    .jr-sidebar-brand-title {
+        color: var(--jr-green);
+        font-size: 1.45rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+    .jr-sidebar-brand-subtitle,
+    .jr-sidebar-section {
+        color: #94a3b8;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+    }
+    .jr-sidebar-user {
+        align-items: center;
+        background: #1f2937;
+        border: 1px solid #263244;
         border-radius: 8px;
-        padding: 0.95rem 1rem;
+        display: flex;
+        gap: 0.75rem;
+        margin: 0.8rem 0 1.1rem;
+        padding: 0.78rem;
+    }
+    .jr-sidebar-avatar {
+        align-items: center;
+        background: var(--jr-green);
+        border-radius: 999px;
+        color: #ffffff;
+        display: flex;
+        font-weight: 800;
+        height: 2.4rem;
+        justify-content: center;
+        min-width: 2.4rem;
+        width: 2.4rem;
+    }
+    .jr-sidebar-user-name {
+        color: #ffffff;
+        font-size: 0.9rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .jr-sidebar-user-role {
+        color: #cbd5e1;
+        font-size: 0.76rem;
+        line-height: 1.25;
+        margin-top: 0.1rem;
+    }
+    .jr-nav-current {
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: #d1d5db;
+        display: block;
+        font-size: 0.92rem;
+        font-weight: 700;
+        margin: 0.32rem 0;
+        padding: 0.72rem 0.75rem;
+        text-decoration: none;
+    }
+    .jr-nav-current {
+        background: rgba(16, 185, 129, 0.16);
+        border-color: var(--jr-green);
+        color: #d1d5db;
+    }
+    .jr-main-shell {
+        max-width: 980px;
+        margin: 0 auto;
+    }
+    div[data-testid="stMetric"] {
+        background: var(--jr-surface);
+        border: 1px solid var(--jr-border);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+        color: var(--jr-text);
+        min-height: 5.4rem;
+        padding: 0.95rem 1rem 1.05rem;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricLabel"],
+    div[data-testid="stMetric"] [data-testid="stMetricLabel"] p {
+        color: var(--jr-muted);
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"],
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] div {
+        color: var(--jr-text);
+        font-size: 1.75rem;
+        font-weight: 500;
+    }
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea,
+    div[data-baseweb="select"] > div {
+        background-color: var(--jr-surface-muted);
+        border-color: transparent;
+        color: var(--jr-text);
+    }
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stTextArea"] textarea::placeholder {
+        color: var(--jr-muted);
+        opacity: 1;
+    }
+    div[data-testid="stForm"],
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--jr-surface);
+        border-color: var(--jr-border);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
     }
     .jr-header {
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--jr-border);
         margin-bottom: 1.25rem;
         padding-bottom: 1rem;
     }
     .jr-header h2 {
+        color: var(--jr-text);
+        font-size: 2rem;
+        font-weight: 800;
         margin-bottom: 0.15rem;
     }
     .jr-muted {
-        color: #64748b;
+        color: var(--jr-muted);
         font-size: 0.95rem;
     }
     .jr-empty {
-        background: #f8fafc;
+        background: var(--jr-surface);
         border: 1px dashed #cbd5e1;
         border-radius: 8px;
         padding: 1.25rem;
         margin-top: 1rem;
     }
     .jr-kicker {
-        color: #166534;
+        color: var(--jr-green-dark);
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0;
         text-transform: uppercase;
     }
     .jr-card-title {
+        color: var(--jr-text);
         font-size: 1.08rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
     }
     .jr-chip {
         display: inline-block;
-        border: 1px solid #d1d5db;
+        border: 1px solid #cbd5e1;
         border-radius: 999px;
-        color: #374151;
+        color: #475569;
         font-size: 0.8rem;
         margin: 0.15rem 0.2rem 0.15rem 0;
         padding: 0.18rem 0.55rem;
     }
     .jr-status {
-        background: #ecfdf5;
+        background: var(--jr-green-soft);
         border: 1px solid #bbf7d0;
         border-radius: 999px;
-        color: #166534;
+        color: #047857;
         display: inline-block;
         font-size: 0.8rem;
         font-weight: 600;
         padding: 0.22rem 0.65rem;
+    }
+    .jr-status-marker {
+        align-items: center;
+        display: inline-flex;
+        gap: 0.35rem;
+        margin: 0.25rem 0 0.45rem;
+    }
+    .jr-status-marker-label {
+        color: var(--jr-muted);
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .jr-status-aplicado {
+        background: #dbeafe;
+        border-color: #bfdbfe;
+        color: #1d4ed8;
+    }
+    .jr-status-descartado {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #b91c1c;
+    }
+    .jr-insight-card {
+        background: var(--jr-surface);
+        border: 1px solid var(--jr-border);
+        border-radius: 8px;
+        min-height: 8rem;
+        padding: 1rem;
+    }
+    .jr-insight-title {
+        color: var(--jr-text);
+        font-size: 0.95rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+    .jr-check-item {
+        align-items: flex-start;
+        display: flex;
+        gap: 0.55rem;
+        margin: 0.45rem 0;
+    }
+    .jr-check-dot {
+        align-items: center;
+        border-radius: 999px;
+        display: flex;
+        font-size: 0.7rem;
+        font-weight: 800;
+        height: 1.1rem;
+        justify-content: center;
+        margin-top: 0.12rem;
+        min-width: 1.1rem;
+        width: 1.1rem;
+    }
+    .jr-check-ok {
+        background: var(--jr-green-soft);
+        color: #047857;
+    }
+    .jr-check-missing {
+        background: #fee2e2;
+        color: #b91c1c;
     }
 </style>
 """
@@ -164,6 +381,69 @@ def truncate_text(value: str | None, limit: int = 260) -> str:
 
 def safe_html(value: object, fallback: str = "") -> str:
     return html.escape(str(value or fallback), quote=True)
+
+
+def sync_section_from_query(section_options: list[str]) -> None:
+    query_section = st.query_params.get("section")
+    if isinstance(query_section, list):
+        query_section = query_section[0] if query_section else None
+    if query_section in section_options:
+        st.session_state["section"] = query_section
+
+
+def render_sidebar(user: dict, section_options: list[str]) -> None:
+    current_section = st.session_state.get("section", "Ofertas")
+    user_name = user.get("nombre") or user.get("email", "Usuario").split("@")[0]
+    desired_role = user.get("puesto_deseado") or "Sin puesto definido"
+    initial = safe_html(user_name[:1].upper(), "U")
+
+    st.sidebar.markdown(
+        f"""
+        <div class="jr-sidebar-brand">
+            <div class="jr-sidebar-brand-title">JobRadar</div>
+            <div class="jr-sidebar-brand-subtitle">Tu radar de empleo tech</div>
+        </div>
+        <div class="jr-sidebar-user">
+            <div class="jr-sidebar-avatar">{initial}</div>
+            <div>
+                <div class="jr-sidebar-user-name">{safe_html(user_name)}</div>
+                <div class="jr-sidebar-user-role">{safe_html(desired_role)}</div>
+            </div>
+        </div>
+        <div class="jr-sidebar-section">Navegación</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    icons = {
+        "Ofertas": "▣",
+        "Mi CV": "◧",
+        "Búsquedas": "⌕",
+        "Avisos": "◖",
+        "Actividad": "▥",
+        "Mi perfil": "◉",
+    }
+    for option in section_options:
+        label = f"{icons.get(option, '•')} {option}"
+        if option == current_section:
+            st.sidebar.markdown(
+                f'<div class="jr-nav-current">{safe_html(label)}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.sidebar.button(
+                label,
+                key=f"nav_{option}",
+                on_click=set_active_section,
+                args=(option,),
+                use_container_width=True,
+            )
+    st.sidebar.markdown("<hr />", unsafe_allow_html=True)
+
+    if st.sidebar.button("Cerrar sesión", use_container_width=True):
+        st.session_state.pop("access_token", None)
+        st.query_params.clear()
+        st.rerun()
 
 
 def api_headers() -> dict[str, str]:
@@ -269,8 +549,8 @@ def render_auth() -> None:
                 st.error(str(error))
 
 
-def load_offers() -> pd.DataFrame:
-    offers = api_request("GET", "/ofertas/")
+def load_offers(limit: int = 50) -> pd.DataFrame:
+    offers = api_request("GET", "/ofertas/", params={"limit": limit})
     return pd.DataFrame(offers)
 
 
@@ -385,12 +665,17 @@ def render_offers() -> None:
     for offer in filtered_offers.head(50).to_dict("records"):
         current_status = offer["estado"] if offer["estado"] in STATUS_LABELS else "guardado"
         current_label = STATUS_LABELS[current_status]
+        status_class = f"jr-status-{safe_html(current_status)}"
         with st.container(border=True):
             top_col, status_col = st.columns([5, 2])
             top_col.markdown(
                 f"""
                 <div class="jr-kicker">{safe_html(offer.get("empresa"), "Empresa confidencial")}</div>
                 <div class="jr-card-title">{safe_html(offer.get("titulo"), "Oferta sin título")}</div>
+                <div class="jr-status-marker">
+                    <span class="jr-status-marker-label">Marcada como</span>
+                    <span class="jr-status {status_class}">{safe_html(current_label)}</span>
+                </div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -412,7 +697,7 @@ def render_offers() -> None:
                 top_col.link_button("Ver oferta", offer["enlace"])
 
             status_col.markdown(
-                f'<span class="jr-status">{format_status(current_status)}</span>',
+                f'<span class="jr-status {status_class}">{format_status(current_status)}</span>',
                 unsafe_allow_html=True,
             )
             new_label = status_col.selectbox(
@@ -709,6 +994,125 @@ def render_channels() -> None:
     )
 
 
+def render_check_item(done: bool, label: str, detail: str) -> None:
+    dot_class = "jr-check-ok" if done else "jr-check-missing"
+    symbol = "✓" if done else "!"
+    st.markdown(
+        f"""
+        <div class="jr-check-item">
+            <div class="jr-check-dot {dot_class}">{symbol}</div>
+            <div>
+                <div class="jr-insight-title">{safe_html(label)}</div>
+                <div class="jr-muted">{safe_html(detail)}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_cv() -> None:
+    render_page_header(
+        "Mi CV",
+        "Prepara tu candidatura con un perfil claro, consistente y alineado a tus ofertas objetivo.",
+    )
+    user = api_request("GET", "/auth/me")
+    try:
+        offers = load_offers(limit=100)
+    except RuntimeError:
+        offers = pd.DataFrame()
+
+    desired_role = user.get("puesto_deseado") or ""
+    location = user.get("ubicacion_preferida") or "Cualquiera"
+    modality = user.get("modalidad_preferida") or "Cualquiera"
+    level = user.get("nivel_experiencia") or ""
+    bio = user.get("bio") or ""
+
+    total_offers = len(offers)
+    saved = 0
+    applied = 0
+    dismissed = 0
+    if not offers.empty and "estado" in offers:
+        normalized_status = offers["estado"].fillna("guardado").astype(str).str.strip().str.lower()
+        saved = int((normalized_status == "guardado").sum())
+        applied = int((normalized_status == "aplicado").sum())
+        dismissed = int((normalized_status == "descartado").sum())
+
+    readiness_checks = [
+        bool(desired_role),
+        bool(level),
+        bool(bio and len(bio.strip()) >= 80),
+        applied > 0,
+    ]
+    readiness_score = round(sum(readiness_checks) / len(readiness_checks) * 100)
+
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Total ofertas", total_offers)
+    metric_cols[1].metric("Me interesa", saved)
+    metric_cols[2].metric("Ya apliqué", applied)
+    metric_cols[3].metric("No encaja", dismissed)
+
+    summary_col, checklist_col = st.columns([1.15, 1], gap="large")
+    with summary_col:
+        st.markdown(
+            f"""
+            <div class="jr-insight-card">
+                <div class="jr-kicker">Resumen profesional</div>
+                <div class="jr-card-title">{safe_html(desired_role, "Puesto objetivo pendiente")}</div>
+                <span class="jr-status">Preparación {readiness_score}%</span>
+                <div class="jr-muted">
+                    {safe_html(bio, "Agrega un resumen de 3 a 5 líneas: especialidad, años de experiencia, stack principal y tipo de producto donde aportas valor.")}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("### Preferencias de búsqueda")
+        st.markdown(
+            f"""
+            <span class="jr-chip">{safe_html(level, "Nivel pendiente")}</span>
+            <span class="jr-chip">{safe_html(location)}</span>
+            <span class="jr-chip">{safe_html(modality)}</span>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("### Enfoque recomendado")
+        st.markdown(
+            """
+            - Personaliza el resumen para el rol objetivo.
+            - Prioriza logros medibles en tus últimas experiencias.
+            - Mantén el stack técnico alineado a las ofertas guardadas.
+            - Revisa cada aplicación después de enviarla.
+            """
+        )
+
+    with checklist_col:
+        st.markdown("### Checklist de candidatura")
+        render_check_item(
+            bool(desired_role),
+            "Puesto objetivo",
+            "Define el cargo principal para que las recomendaciones y el CV hablen el mismo idioma.",
+        )
+        render_check_item(
+            bool(level),
+            "Nivel de experiencia",
+            "Ayuda a filtrar ofertas y a presentar expectativas realistas.",
+        )
+        render_check_item(
+            bool(bio and len(bio.strip()) >= 80),
+            "Resumen profesional",
+            "Un buen resumen evita que el perfil parezca vacío ante reclutadores.",
+        )
+        render_check_item(
+            applied > 0,
+            "Primeras aplicaciones",
+            "Marca ofertas como aplicadas para medir avance real, no solo intención.",
+        )
+
+        st.button("Editar datos base", on_click=set_active_section, args=("Mi perfil",), use_container_width=True)
+
+
 def render_profile() -> None:
     render_page_header("Mi perfil", "Mantén tu búsqueda actualizada para mejorar las recomendaciones.")
     user = api_request("GET", "/auth/me")
@@ -795,34 +1199,27 @@ def main() -> None:
         render_auth()
         return
 
-    section_options = ["Mi perfil", "Ofertas", "Búsquedas", "Avisos", "Actividad"]
+    section_options = ["Ofertas", "Mi CV", "Búsquedas", "Avisos", "Actividad", "Mi perfil"]
+    sync_section_from_query(section_options)
     if st.session_state.get("section") not in section_options:
         st.session_state["section"] = "Ofertas"
 
-    st.sidebar.title("JobRadar")
-    st.sidebar.caption("Búsqueda de empleo")
+    current_user = api_request("GET", "/auth/me")
+    render_sidebar(current_user, section_options)
+    section = st.session_state["section"]
 
-    if st.sidebar.button("Cerrar sesión"):
-        st.session_state.pop("access_token", None)
-        st.rerun()
-
-    section = st.sidebar.radio(
-        "Sección",
-        section_options,
-        key="section",
-        label_visibility="collapsed",
-    )
-
-    if section == "Mi perfil":
-        render_profile()
-    elif section == "Ofertas":
+    if section == "Ofertas":
         render_offers()
+    elif section == "Mi CV":
+        render_cv()
     elif section == "Búsquedas":
         render_alerts()
     elif section == "Avisos":
         render_channels()
     elif section == "Actividad":
         render_scraper_runs()
+    elif section == "Mi perfil":
+        render_profile()
 
 
 if __name__ == "__main__":
