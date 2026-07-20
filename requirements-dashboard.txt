@@ -1,6 +1,7 @@
 streamlit
 pandas
 requests
+python-dotenv
 sqlalchemy
 pydantic
 httpx

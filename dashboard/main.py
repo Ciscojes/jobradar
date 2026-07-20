@@ -1,5 +1,6 @@
 import html
 import os
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -8,6 +9,31 @@ import streamlit as st
 from components.filters import render_offer_filters
 from components.metrics import render_offer_metrics
 
+
+def load_environment() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:
+        env_path = Path(".env")
+        if not env_path.exists():
+            return
+
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+        return
+
+    load_dotenv()
+
+
+load_environment()
 
 API_BASE_URL = os.getenv("JOBRADAR_API_URL", "http://localhost:8000").rstrip("/")
 TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "jobradar_alertas_bot").strip().lstrip("@")
@@ -842,14 +868,16 @@ def render_alerts() -> None:
 def render_channels() -> None:
     render_page_header("Avisos", "Conecta Telegram para recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
-    bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}"
+    bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}?start=jobradar"
     created_message = st.session_state.pop("channel_created_message", None)
     if created_message:
         st.success(created_message)
 
     st.markdown("### Telegram")
     st.info(
-        "Abre el bot oficial de JobRadar, pulsa Start y vuelve aquí para conectar tu cuenta. "
+        f"Abre @{TELEGRAM_BOT_USERNAME}, pulsa Start y envía un mensaje como /start o hola. "
+        "Después vuelve aquí para conectar tu cuenta. Si Telegram web o desktop no abre bien el chat, "
+        "hazlo desde Telegram móvil. "
         "No necesitas copiar tokens ni configurar nada técnico."
     )
     col_bot, col_detect = st.columns([2, 1])
@@ -861,7 +889,10 @@ def render_channels() -> None:
             if result["chats"]:
                 st.success("Chat detectado. Selecciona tu Telegram y agrega el aviso.")
             else:
-                st.warning("No encontré chats recientes. Abre el bot, pulsa Start y vuelve a detectar.")
+                st.warning(
+                    f"No encontré chats recientes en @{TELEGRAM_BOT_USERNAME}. "
+                    "Abre ese bot exacto, envía /start o hola y vuelve a detectar."
+                )
         except RuntimeError as error:
             st.error(str(error))
 
@@ -878,7 +909,7 @@ def render_channels() -> None:
             destination = str(selected_chat["id"])
         else:
             st.warning(
-                "Primero abre el bot, pulsa Start y usa Detectar mi chat ID. "
+                f"Primero abre @{TELEGRAM_BOT_USERNAME}, envía /start o hola y usa Detectar mi chat ID. "
                 "Si ya lo hiciste, vuelve a detectar."
             )
             destination = ""

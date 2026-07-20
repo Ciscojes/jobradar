@@ -2,6 +2,11 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from .env import load_environment
+
+
+load_environment()
+
 
 def _get_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
