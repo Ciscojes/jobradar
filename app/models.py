@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship, synonym
 
 from .database import Base
@@ -105,6 +105,9 @@ class NotificationChannel(Base):
 
 class UserOferta(Base):
     __tablename__ = "user_ofertas"
+    __table_args__ = (
+        UniqueConstraint("user_id", "oferta_id", name="uq_user_oferta"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -119,6 +122,61 @@ class UserOferta(Base):
     oferta = relationship("JobOffer", back_populates="user_ofertas")
     alerta = relationship("Alert", back_populates="user_ofertas")
     notification_logs = relationship("NotificationLog", back_populates="user_oferta")
+    notification_outbox = relationship(
+        "NotificationOutbox",
+        back_populates="user_oferta",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class NotificationOutbox(Base):
+    __tablename__ = "notification_outbox"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_oferta_id = Column(
+        Integer,
+        ForeignKey("user_ofertas.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    status = Column(String, nullable=False, default="pending", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    available_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+    last_error = Column(Text, nullable=True)
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+    user_oferta = relationship("UserOferta", back_populates="notification_outbox")
+
+
+class ManualSyncJob(Base):
+    __tablename__ = "manual_sync_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    query = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    available_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class WorkerHeartbeat(Base):
+    __tablename__ = "worker_heartbeats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    worker_name = Column(String, nullable=False, unique=True, index=True)
+    status = Column(String, nullable=False, default="starting")
+    last_seen_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+    last_error = Column(Text, nullable=True)
+    manual_jobs_processed = Column(Integer, nullable=False, default=0)
+    notifications_processed = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
 class NotificationLog(Base):

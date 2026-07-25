@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -7,7 +7,13 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
 from ..services.notifications import send_channel_notification
-from ..services.telegram import get_recent_telegram_chats
+from ..services.telegram import (
+    create_telegram_channel_token,
+    create_telegram_link_token,
+    get_recent_telegram_chats,
+    verify_telegram_channel_token,
+    verify_telegram_link_token,
+)
 
 
 router = APIRouter(
@@ -102,6 +108,12 @@ def create_channel(
     destination = _normalize_channel_destination(channel_type, payload.destination)
     if not destination:
         raise HTTPException(status_code=400, detail="El destino del aviso es obligatorio")
+    if not payload.verification_token or not verify_telegram_channel_token(
+        payload.verification_token,
+        current_user.id,
+        destination,
+    ):
+        raise HTTPException(status_code=400, detail="Debes verificar que el chat de Telegram es tuyo")
     _ensure_unique_channel(db, current_user.id, channel_type, destination)
 
     channel = models.NotificationChannel(
@@ -109,6 +121,7 @@ def create_channel(
         type=channel_type,
         destination=destination,
         is_active=payload.is_active,
+        verified_at=models.utc_now(),
     )
     db.add(channel)
     db.commit()
@@ -140,13 +153,28 @@ def create_channel(
     return channel
 
 
-@router.get("/telegram/chats")
-def read_recent_telegram_chats(
+@router.post("/telegram/link")
+def create_telegram_link(
     current_user: models.User = Depends(get_current_user),
 ):
-    chats, error = get_recent_telegram_chats()
+    return {"link_token": create_telegram_link_token(current_user.id)}
+
+
+@router.get("/telegram/chats")
+def read_recent_telegram_chats(
+    link_token: str = Query(..., min_length=16, max_length=64),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not verify_telegram_link_token(link_token, current_user.id):
+        raise HTTPException(status_code=400, detail="El enlace de Telegram no es válido o ha caducado")
+    chats, error = get_recent_telegram_chats(link_token)
     if error:
         raise HTTPException(status_code=502, detail=error)
+    for chat in chats:
+        chat["verification_token"] = create_telegram_channel_token(
+            current_user.id,
+            str(chat["id"]),
+        )
     return {"chats": chats, "user_id": current_user.id}
 
 
@@ -169,6 +197,7 @@ def update_channel(
         raise HTTPException(status_code=404, detail="Canal no encontrado")
 
     updates = payload.model_dump(exclude_unset=True)
+    verification_token = updates.pop("verification_token", None)
     new_type = updates.get("type", channel.type)
     if isinstance(new_type, str):
         new_type = new_type.lower().strip()
@@ -180,6 +209,16 @@ def update_channel(
         new_destination = _normalize_channel_destination(new_type, new_destination)
     if not new_destination:
         raise HTTPException(status_code=400, detail="El destino del aviso es obligatorio")
+    destination_changed = new_destination != channel.destination
+    if destination_changed and (
+        not verification_token
+        or not verify_telegram_channel_token(
+            verification_token,
+            current_user.id,
+            new_destination,
+        )
+    ):
+        raise HTTPException(status_code=400, detail="Debes verificar que el chat de Telegram es tuyo")
 
     _ensure_unique_channel(
         db,
@@ -195,6 +234,8 @@ def update_channel(
         elif field == "destination":
             value = new_destination
         setattr(channel, field, value)
+    if destination_changed:
+        channel.verified_at = models.utc_now()
 
     db.commit()
     db.refresh(channel)
@@ -219,6 +260,8 @@ def test_channel(
         raise HTTPException(status_code=404, detail="Canal no encontrado")
     if not channel.is_active:
         raise HTTPException(status_code=400, detail="El canal está inactivo")
+    if channel.verified_at is None:
+        raise HTTPException(status_code=400, detail="El canal no está verificado")
 
     sent = send_channel_notification(
         db,

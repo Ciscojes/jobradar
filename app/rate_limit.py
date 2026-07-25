@@ -13,7 +13,7 @@ _lock = Lock()
 
 def _client_key(request: Request, scope: str) -> str:
     forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
+    if forwarded_for and get_settings().trust_proxy_headers:
         host = forwarded_for.split(",", 1)[0].strip()
     elif request.client:
         host = request.client.host
@@ -27,9 +27,13 @@ def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> None:
     cutoff = now - window_seconds
 
     with _lock:
+        for stale_key, stale_attempts in list(_attempts.items()):
+            while stale_attempts and stale_attempts[0] < cutoff:
+                stale_attempts.popleft()
+            if not stale_attempts:
+                del _attempts[stale_key]
+
         attempts = _attempts[key]
-        while attempts and attempts[0] < cutoff:
-            attempts.popleft()
 
         if len(attempts) >= max_requests:
             raise HTTPException(
@@ -46,4 +50,13 @@ def limit_auth_attempts(request: Request) -> None:
         _client_key(request, "auth"),
         settings.auth_rate_limit_requests,
         settings.auth_rate_limit_window_seconds,
+    )
+
+
+def limit_sync_attempts(request: Request) -> None:
+    settings = get_settings()
+    check_rate_limit(
+        _client_key(request, "sync"),
+        settings.sync_rate_limit_requests,
+        settings.sync_rate_limit_window_seconds,
     )

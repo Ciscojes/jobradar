@@ -1,6 +1,5 @@
 import logging
-from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, BackgroundTasks, Query
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from typing import Dict, Any, Iterable
@@ -9,14 +8,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .config import get_settings
-from .database import engine, Base, SessionLocal, get_db
+from .database import engine, Base, get_db
 from .deps import get_current_user
 from .observability import configure_logging
+from .rate_limit import limit_sync_attempts
 from .routers import auth, ofertas, alertas, notificaciones, scheduler
-from .scraper.adzuna import fetch_adzuna_offers
-from .scraper.indeed import fetch_indeed_offers
-from .services.notifications import notify_user_offer
-from .services.scheduler import ensure_scheduler_schema, scheduler_service
+from .services.manual_sync import enqueue_manual_sync
+from .services.scheduler import ensure_scheduler_schema
 from . import models, schemas
 
 settings = get_settings()
@@ -28,20 +26,10 @@ if settings.auto_create_tables:
     ensure_scheduler_schema(engine)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler_service.start()
-    try:
-        yield
-    finally:
-        scheduler_service.shutdown()
-
-
 app = FastAPI(
     title="jobradar API",
     description="API para centralizar ofertas de empleo y enviar alertas por Telegram.",
     version="1.0.0",
-    lifespan=lifespan,
     docs_url="/docs" if settings.docs_enabled else None,
     redoc_url="/redoc" if settings.docs_enabled else None,
     openapi_url="/openapi.json" if settings.docs_enabled else None,
@@ -150,82 +138,27 @@ def build_offer_notification(offer_data: Dict[str, Any]) -> str:
     )
 
 
-def run_sync_task(query: str = "python") -> int:
-    """
-    Función auxiliar para ejecutar la sincronización en segundo plano.
-    Trae ofertas de Adzuna e Indeed, crea los matches por usuario y notifica
-    mediante los canales activos que cada usuario haya elegido.
-    """
-    db = SessionLocal()
-    try:
-        logger.info("Starting manual sync for query '%s'", query)
-        adzuna_offers = fetch_adzuna_offers(query, limit=5)
-        indeed_offers = fetch_indeed_offers(query, limit=5)
-
-        all_offers = adzuna_offers + indeed_offers
-        active_alerts = db.query(models.Alerta).filter(models.Alerta.activo.is_(True)).all()
-        new_offers_count = 0
-
-        for offer_data in all_offers:
-            exists = db.query(models.Oferta).filter(models.Oferta.enlace == offer_data["enlace"]).first()
-            if exists:
-                continue
-
-            db_offer = models.Oferta(**offer_data)
-            db.add(db_offer)
-            new_offers_count += 1
-
-            db.flush()
-            for alert in active_alerts:
-                if not offer_matches_alert(offer_data, alert):
-                    continue
-                existing_match = (
-                    db.query(models.UserOferta)
-                    .filter(
-                        models.UserOferta.user_id == alert.user_id,
-                        models.UserOferta.oferta_id == db_offer.id,
-                    )
-                    .first()
-                )
-                if existing_match:
-                    continue
-                user_offer = models.UserOferta(
-                    user_id=alert.user_id,
-                    oferta_id=db_offer.id,
-                    alerta_id=alert.id,
-                    estado="guardado",
-                )
-                db.add(user_offer)
-                db.flush()
-                try:
-                    notify_user_offer(db, user_offer, offer_data)
-                except Exception as notification_error:
-                    logger.exception(
-                        "Channel notification failed for user %s: %s",
-                        alert.user_id,
-                        notification_error,
-                    )
-
-        db.commit()
-        logger.info("Manual sync finished with %s new offers", new_offers_count)
-        return new_offers_count
-    finally:
-        db.close()
-
 @app.post("/scraper/sync", status_code=200)
 def sync_scraper(
-    background_tasks: BackgroundTasks, 
-    query: str = Query("python", description="Término de búsqueda para sincronizar"),
+    query: str = Query(
+        "python",
+        min_length=1,
+        max_length=100,
+        description="Término de búsqueda para sincronizar",
+    ),
     current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    _: None = Depends(limit_sync_attempts),
 ):
     """
-    Sincronización manual que se ejecuta en segundo plano (Background Task)
-    para evitar bloquear la respuesta HTTP.
+    Encola una sincronización persistente para que la ejecute el worker.
     """
-    background_tasks.add_task(run_sync_task, query)
+    job = enqueue_manual_sync(db, current_user.id, query)
+    db.commit()
     return {
-        "status": "success",
-        "message": f"Sincronización para '{query}' iniciada en segundo plano."
+        "status": "queued",
+        "job_id": job.id,
+        "message": f"Sincronización para '{query}' encolada."
     }
 
 

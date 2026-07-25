@@ -14,11 +14,14 @@ from app.routers.notificaciones import (
     delete_channel,
     read_channels,
     read_notification_logs,
+    read_recent_telegram_chats,
     test_channel as call_test_channel,
     update_channel,
 )
 from app.schemas import NotificationChannelCreate, NotificationChannelUpdate, UserCreate, UserLogin
 from app.services.scheduler import run_scheduled_scraper
+from app.services.notifications import process_notification_outbox
+from app.services.telegram import create_telegram_channel_token, create_telegram_link_token
 
 
 @pytest.fixture
@@ -40,11 +43,20 @@ def _crear_usuario_autenticado(db_session, email="canales@example.com"):
     return get_current_user(token_payload.access_token, db=db_session)
 
 
+def _telegram_channel(user, destination, is_active=True):
+    return NotificationChannelCreate(
+        type="telegram",
+        destination=str(destination),
+        is_active=is_active,
+        verification_token=create_telegram_channel_token(user.id, str(destination)),
+    )
+
+
 def test_crud_canales_de_notificacion(db_session):
     user = _crear_usuario_autenticado(db_session)
 
     created = create_channel(
-        NotificationChannelCreate(type="telegram", destination="123456", is_active=True),
+        _telegram_channel(user, "123456"),
         db=db_session,
         current_user=user,
     )
@@ -84,14 +96,14 @@ def test_canales_rechazan_destino_duplicado_por_usuario(db_session):
     user = _crear_usuario_autenticado(db_session, email="duplicado@example.com")
 
     create_channel(
-        NotificationChannelCreate(type="telegram", destination=" 123456 ", is_active=False),
+        _telegram_channel(user, "123456", is_active=False),
         db=db_session,
         current_user=user,
     )
 
     with pytest.raises(HTTPException) as exc_info:
         create_channel(
-            NotificationChannelCreate(type="telegram", destination="123456", is_active=False),
+            _telegram_channel(user, "123456", is_active=False),
             db=db_session,
             current_user=user,
         )
@@ -103,7 +115,7 @@ def test_canales_rechazan_destino_duplicado_por_usuario(db_session):
 def test_canales_incluyen_ultimo_aviso(db_session):
     user = _crear_usuario_autenticado(db_session, email="ultimo-aviso@example.com")
     channel = create_channel(
-        NotificationChannelCreate(type="telegram", destination="555555", is_active=False),
+        _telegram_channel(user, "555555", is_active=False),
         db=db_session,
         current_user=user,
     )
@@ -184,11 +196,103 @@ def test_tipo_de_canal_invalido_es_rechazado(db_session):
     assert exc_info.value.status_code == 400
 
 
+def test_canal_telegram_rechaza_destino_no_verificado(db_session):
+    user = _crear_usuario_autenticado(db_session, email="canal-no-verificado@example.com")
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_channel(
+            NotificationChannelCreate(type="telegram", destination="123456"),
+            db=db_session,
+            current_user=user,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "verificar" in exc_info.value.detail.lower()
+
+
+def test_canal_telegram_rechaza_token_de_otro_usuario(db_session):
+    user = _crear_usuario_autenticado(db_session, email="canal-token-ajeno@example.com")
+    token = create_telegram_channel_token(user.id + 1, "123456")
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_channel(
+            NotificationChannelCreate(
+                type="telegram",
+                destination="123456",
+                verification_token=token,
+            ),
+            db=db_session,
+            current_user=user,
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_deteccion_de_chat_rechaza_enlace_de_otro_usuario(db_session):
+    user = _crear_usuario_autenticado(db_session, email="telegram-link-owner@example.com")
+    other_user = _crear_usuario_autenticado(db_session, email="telegram-link-other@example.com")
+    token = create_telegram_link_token(user.id)
+
+    with pytest.raises(HTTPException) as exc_info:
+        read_recent_telegram_chats(link_token=token, current_user=other_user)
+
+    assert exc_info.value.status_code == 400
+
+
+def test_cambiar_destino_telegram_exige_nueva_verificacion(db_session):
+    user = _crear_usuario_autenticado(db_session, email="canal-cambio-destino@example.com")
+    channel = create_channel(
+        _telegram_channel(user, "111111", is_active=False),
+        db=db_session,
+        current_user=user,
+    )
+    channel.verified_at = None
+    db_session.commit()
+
+    with pytest.raises(HTTPException):
+        update_channel(
+            channel.id,
+            NotificationChannelUpdate(destination="222222"),
+            db=db_session,
+            current_user=user,
+        )
+
+    updated = update_channel(
+        channel.id,
+        NotificationChannelUpdate(
+            destination="222222",
+            verification_token=create_telegram_channel_token(user.id, "222222"),
+        ),
+        db=db_session,
+        current_user=user,
+    )
+
+    assert updated.destination == "222222"
+    assert updated.verified_at is not None
+
+
+def test_probar_canal_no_verificado_es_rechazado(db_session):
+    user = _crear_usuario_autenticado(db_session, email="canal-no-verificado-test@example.com")
+    channel = create_channel(
+        _telegram_channel(user, "333333"),
+        db=db_session,
+        current_user=user,
+    )
+    channel.verified_at = None
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        call_test_channel(channel.id, db=db_session, current_user=user)
+
+    assert exc_info.value.status_code == 400
+    assert "verificado" in exc_info.value.detail.lower()
+
+
 def test_probar_canal_inactivo_es_rechazado(db_session):
     user = _crear_usuario_autenticado(db_session, email="canal-inactivo@example.com")
 
     created = create_channel(
-        NotificationChannelCreate(type="telegram", destination="999999", is_active=False),
+        _telegram_channel(user, "999999", is_active=False),
         db=db_session,
         current_user=user,
     )
@@ -198,14 +302,18 @@ def test_probar_canal_inactivo_es_rechazado(db_session):
     assert exc_info.value.status_code == 400
 
 
-def test_scheduler_crea_match_y_notifica_por_canal_activo(db_session):
+def test_scheduler_confirma_match_antes_de_procesar_notificacion(db_session):
     user = models.User(email="scheduler-canal@example.com", password_hash="hashed")
     db_session.add(user)
     db_session.flush()
 
     db_session.add(
         models.NotificationChannel(
-            user_id=user.id, type="telegram", destination="555555", is_active=True
+            user_id=user.id,
+            type="telegram",
+            destination="555555",
+            is_active=True,
+            verified_at=models.utc_now(),
         )
     )
     db_session.add(
@@ -240,6 +348,18 @@ def test_scheduler_crea_match_y_notifica_por_canal_activo(db_session):
     matches = db_session.query(models.UserOferta).filter(models.UserOferta.user_id == user.id).all()
     assert len(matches) == 1
 
+    assert db_session.query(models.NotificationOutbox).count() == 1
+    logs = (
+        db_session.query(models.NotificationLog)
+        .filter(models.NotificationLog.user_id == user.id)
+        .all()
+    )
+    assert logs == []
+
+    process_notification_outbox(
+        db_session,
+        sender=lambda text, chat_id=None: (True, "sent", None),
+    )
     logs = (
         db_session.query(models.NotificationLog)
         .filter(models.NotificationLog.user_id == user.id)

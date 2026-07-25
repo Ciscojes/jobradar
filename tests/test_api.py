@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from tests.db import TestingSessionLocal, engine, reset_database as reset_test_database
 from app import models
@@ -390,6 +391,37 @@ def test_crud_completo_alertas(db_session):
     assert enabled_alert.activo is True
 
 
+def test_patch_alerta_actualiza_solo_campos_enviados(db_session):
+    current_user = models.User(email="patch-alerts@example.com", password_hash="hashed")
+    db_session.add(current_user)
+    db_session.flush()
+    alert = models.Alerta(
+        user_id=current_user.id,
+        termino="python",
+        ubicacion="Madrid",
+        modalidad="Remoto",
+        fuente="Adzuna",
+        activo=True,
+    )
+    db_session.add(alert)
+    db_session.commit()
+
+    updated = update_alerta(
+        alert.id,
+        AlertaUpdate(termino="fastapi"),
+        db=db_session,
+        current_user=current_user,
+    )
+
+    assert updated.termino == "fastapi"
+    assert updated.ubicacion == "Madrid"
+    assert updated.modalidad == "Remoto"
+    assert updated.fuente == "Adzuna"
+    alert_operations = app.openapi()["paths"]["/alertas/{alerta_id}"]
+    assert "patch" in alert_operations
+    assert "put" not in alert_operations
+
+
 def test_usuario_no_puede_acceder_alertas_de_otro_usuario(db_session):
     owner = models.User(email="owner-alerts@example.com", password_hash="hashed")
     other_user = models.User(email="other-alerts@example.com", password_hash="hashed")
@@ -461,3 +493,30 @@ def test_modelos_saas_basicos(db_session):
     assert user.alerts[0].keyword == "python"
     assert notification.alert_id == alert.id
     assert scraper_run.offers_found == 1
+
+
+def test_user_oferta_es_unica_por_usuario_y_oferta(db_session):
+    user = models.User(email="unique-match@example.com", password_hash="hashed")
+    offer = models.Oferta(
+        titulo="Oferta única",
+        empresa="JobRadar Labs",
+        ubicacion="Madrid",
+        enlace="https://example.com/ofertas/unique-match",
+        fuente="Test",
+    )
+    db_session.add_all([user, offer])
+    db_session.flush()
+    alert_a = models.Alerta(user_id=user.id, termino="python")
+    alert_b = models.Alerta(user_id=user.id, termino="backend")
+    db_session.add_all([alert_a, alert_b])
+    db_session.flush()
+    db_session.add(
+        models.UserOferta(user_id=user.id, oferta_id=offer.id, alerta_id=alert_a.id)
+    )
+    db_session.commit()
+
+    db_session.add(
+        models.UserOferta(user_id=user.id, oferta_id=offer.id, alerta_id=alert_b.id)
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()

@@ -4,7 +4,15 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 import urllib.parse
 
+from ..config import get_settings
+
 logger = logging.getLogger(__name__)
+
+
+def _mock_or_raise(query: str, limit: int, reason: str) -> List[Dict[str, Any]]:
+    if get_settings().allow_mock_offers:
+        return get_mock_indeed_offers(query, limit)
+    raise RuntimeError(f"Indeed no está disponible: {reason}")
 
 def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str, Any]]:
     """
@@ -25,7 +33,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         response = requests.get(indeed_url, headers=headers, timeout=10)
         # Si somos bloqueados o la respuesta no es 200, caemos al fallback de mock de forma segura
         if response.status_code != 200:
-            return get_mock_indeed_offers(query, limit)
+            return _mock_or_raise(query, limit, f"HTTP {response.status_code}")
             
         soup = BeautifulSoup(response.text, "html.parser")
         
@@ -33,7 +41,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         job_cards = soup.find_all(class_="resultContent")
         if not job_cards:
             # Si no encuentra elementos, es muy probable que haya saltado un captcha/bloqueo de Cloudflare
-            return get_mock_indeed_offers(query, limit)
+            return _mock_or_raise(query, limit, "respuesta sin ofertas reconocibles")
             
         parsed_offers = []
         for card in job_cards[:limit]:
@@ -67,13 +75,15 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
                 continue
                 
         if not parsed_offers:
-            return get_mock_indeed_offers(query, limit)
+            return _mock_or_raise(query, limit, "no se pudo interpretar ninguna oferta")
             
         return parsed_offers
         
     except Exception as e:
         logger.exception("Indeed connection failed: %s", e)
-        return get_mock_indeed_offers(query, limit)
+        if isinstance(e, RuntimeError):
+            raise
+        return _mock_or_raise(query, limit, "error de conexión")
 
 def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:
     """

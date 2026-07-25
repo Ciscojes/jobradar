@@ -47,6 +47,9 @@ def test_alembic_migrations_upgrade_downgrade_and_restore_head(tmp_path, monkeyp
         "user_ofertas",
         "notification_channels",
         "notification_logs",
+        "notification_outbox",
+        "manual_sync_jobs",
+        "worker_heartbeats",
         "scraper_runs",
         "alembic_version",
     }.issubset(tables)
@@ -58,6 +61,8 @@ def test_alembic_migrations_upgrade_downgrade_and_restore_head(tmp_path, monkeyp
     )
     assert "new_matches" in {column["name"] for column in inspector.get_columns("scraper_runs")}
     engine.dispose()
+
+    command.check(config)
 
     command.downgrade(config, "base")
     command.upgrade(config, "head")

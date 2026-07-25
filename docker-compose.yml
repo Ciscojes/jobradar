@@ -63,6 +63,31 @@ services:
       retries: 5
       start_period: 20s
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS_FILE: requirements-api.txt
+
+    container_name: jobradar-worker
+    restart: unless-stopped
+    command: python -m app.worker
+
+    volumes:
+      - .:/code
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:-jobradar}@postgres:5432/${POSTGRES_DB:-jobradar}
+
   dashboard:
     build:
       context: .

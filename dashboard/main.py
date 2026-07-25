@@ -868,30 +868,44 @@ def render_alerts() -> None:
 def render_channels() -> None:
     render_page_header("Avisos", "Conecta Telegram para recibir nuevas oportunidades.")
     channels = api_request("GET", "/notificaciones/canales")
-    bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}?start=jobradar"
+    if "telegram_link_token" not in st.session_state:
+        link = api_request("POST", "/notificaciones/telegram/link")
+        st.session_state["telegram_link_token"] = link["link_token"]
+    link_token = st.session_state["telegram_link_token"]
+    bot_url = f"https://t.me/{TELEGRAM_BOT_USERNAME}?start={link_token}"
     created_message = st.session_state.pop("channel_created_message", None)
     if created_message:
         st.success(created_message)
 
     st.markdown("### Telegram")
     st.info(
-        f"Abre @{TELEGRAM_BOT_USERNAME}, pulsa Start y envía un mensaje como /start o hola. "
-        "Después vuelve aquí para conectar tu cuenta. Si Telegram web o desktop no abre bien el chat, "
+        f"Abre @{TELEGRAM_BOT_USERNAME} con tu enlace privado y pulsa Start. "
+        "Después vuelve aquí para conectar tu cuenta. El enlace caduca en 10 minutos. "
+        "Si Telegram web o desktop no abre bien el chat, "
         "hazlo desde Telegram móvil. "
         "No necesitas copiar tokens ni configurar nada técnico."
     )
-    col_bot, col_detect = st.columns([2, 1])
+    col_bot, col_detect, col_renew = st.columns([2, 1, 1])
     col_bot.link_button(f"Abrir @{TELEGRAM_BOT_USERNAME}", bot_url)
+    if col_renew.button("Renovar enlace"):
+        link = api_request("POST", "/notificaciones/telegram/link")
+        st.session_state["telegram_link_token"] = link["link_token"]
+        st.session_state.pop("telegram_chats", None)
+        st.rerun()
     if col_detect.button("Detectar mi chat ID"):
         try:
-            result = api_request("GET", "/notificaciones/telegram/chats")
+            result = api_request(
+                "GET",
+                "/notificaciones/telegram/chats",
+                params={"link_token": link_token},
+            )
             st.session_state["telegram_chats"] = result["chats"]
             if result["chats"]:
                 st.success("Chat detectado. Selecciona tu Telegram y agrega el aviso.")
             else:
                 st.warning(
                     f"No encontré chats recientes en @{TELEGRAM_BOT_USERNAME}. "
-                    "Abre ese bot exacto, envía /start o hola y vuelve a detectar."
+                    "Abre el enlace privado, pulsa Start y vuelve a detectar."
                 )
         except RuntimeError as error:
             st.error(str(error))
@@ -907,14 +921,14 @@ def render_channels() -> None:
                 format_func=lambda chat: f"{chat['name']} ({chat['id']})",
             )
             destination = str(selected_chat["id"])
+            verification_token = selected_chat["verification_token"]
         else:
             st.warning(
-                f"Primero abre @{TELEGRAM_BOT_USERNAME}, envía /start o hola y usa Detectar mi chat ID. "
+                f"Primero abre @{TELEGRAM_BOT_USERNAME} con tu enlace privado, pulsa Start y usa Detectar mi chat ID. "
                 "Si ya lo hiciste, vuelve a detectar."
             )
             destination = ""
-            with st.expander("Ingresar chat ID manualmente"):
-                destination = st.text_input("Chat ID", placeholder="Ejemplo: 1463980165")
+            verification_token = ""
 
         submitted = st.form_submit_button("Agregar aviso")
     if submitted:
@@ -929,6 +943,7 @@ def render_channels() -> None:
                         "type": channel_type,
                         "destination": destination,
                         "is_active": True,
+                        "verification_token": verification_token,
                     },
                 )
                 st.session_state["channel_created_message"] = (
@@ -936,6 +951,8 @@ def render_channels() -> None:
                     if channel_type == "telegram"
                     else "Aviso conectado."
                 )
+                st.session_state.pop("telegram_chats", None)
+                st.session_state.pop("telegram_link_token", None)
                 st.rerun()
             except RuntimeError as error:
                 st.error(str(error))
@@ -943,7 +960,7 @@ def render_channels() -> None:
     if st.session_state.get("telegram_chats"):
         with st.expander("Chats detectados recientemente"):
             st.dataframe(
-                pd.DataFrame(st.session_state["telegram_chats"]),
+                pd.DataFrame(st.session_state["telegram_chats"])[["id", "name", "username"]],
                 hide_index=True,
                 width="stretch",
             )

@@ -9,6 +9,6 @@ beautifulsoup4
 streamlit
 pandas
 pytest
-httpx
+httpx2==2.9.1
 apscheduler
 alembic

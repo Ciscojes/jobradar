@@ -1,6 +1,10 @@
 from tests.db import TestingSessionLocal, reset_database
 from app import models
-from app.services.scheduler import get_scheduler_status, run_scheduled_scraper
+from app.services.scheduler import (
+    get_scheduler_status,
+    run_scheduled_scraper,
+    run_worker_maintenance,
+)
 
 
 def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():
@@ -33,6 +37,7 @@ def test_scheduler_busca_alertas_activas_y_guarda_ofertas_sin_duplicar():
         db.commit()
 
         def fake_search(**kwargs):
+            assert db.in_transaction() is False
             calls.append(kwargs)
             return [
                 {
@@ -99,17 +104,34 @@ def test_scheduler_registra_error_de_ejecucion():
         db.close()
 
 
-def test_scheduler_status_devuelve_ultima_ejecucion_y_conteo():
+def test_scheduler_status_devuelve_ultima_ejecucion_y_conteo(monkeypatch):
     reset_database()
     db = TestingSessionLocal()
 
     try:
+        monkeypatch.setenv("SCRAPER_SCHEDULER_ENABLED", "true")
+        monkeypatch.setattr(
+            "app.services.scheduler.scheduler_service.state",
+            lambda: (_ for _ in ()).throw(AssertionError("no debe consultar el scheduler de la API")),
+        )
         run_scheduled_scraper(db=db, search_func=lambda **kwargs: [])
+        run_worker_maintenance(
+            db,
+            manual_processor=lambda session: 0,
+            outbox_processor=lambda session: 0,
+        )
         status = get_scheduler_status(db)
 
         assert status["last_run"]["status"] == "success"
         assert status["execution_count"] == 1
-        assert "status" in status
-        assert "next_run" in status
+        assert status["status"] == "enabled"
+        assert status["next_run"] is None
+        assert status["worker"]["status"] == "healthy"
+        assert status["worker"]["is_stale"] is False
+        assert status["queues"] == {
+            "manual_pending": 0,
+            "notifications_pending": 0,
+            "notifications_failed": 0,
+        }
     finally:
         db.close()

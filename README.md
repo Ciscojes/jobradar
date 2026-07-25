@@ -62,10 +62,10 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 - **Arquitectura multiusuario real**, con autenticación JWT, permisos por usuario y aislamiento de datos entre cuentas.
 - **Persistencia gestionada correctamente**: modelos relacionales con SQLAlchemy 2.0 y migraciones versionadas con Alembic (nada de `CREATE TABLE` sueltos).
 - **Integración con una API externa real** (Adzuna), con manejo de errores y datos de fallback para desarrollo sin credenciales.
-- **Automatización en segundo plano** con APScheduler: búsqueda periódica, matching por perfil y notificaciones sin intervención manual.
-- **Notificaciones por Telegram** desacopladas del núcleo de negocio.
+- **Automatización en segundo plano** con APScheduler en un worker separado de la API: búsqueda periódica, matching por perfil y notificaciones sin intervención manual.
+- **Notificaciones por Telegram** mediante outbox persistente, con reintentos fuera de las transacciones de negocio.
 - **Cobertura de tests** sobre autenticación, alertas, scheduler y notificaciones.
-- **Contenedorización completa** con `docker-compose` (API + dashboard + base de datos).
+- **Contenedorización completa** con `docker-compose` (API + worker + dashboard + base de datos).
 - **Trabajo colaborativo real**: desarrollo en equipo con control de versiones, ramas y merges entre dos desarrolladores.
 
 <br/>
@@ -81,12 +81,12 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 | ⚡ **Recomendaciones instantáneas** | En cuanto te registras o creas una alerta, se busca y se muestra al momento, sin esperar al scheduler |
 | 📡 **Integración con Adzuna** | Búsqueda de ofertas reales vía API oficial, con datos de prueba automáticos si no hay credenciales |
 | 🔔 **Notificaciones** | Telegram por usuario, con mensaje de bienvenida automático al conectar el canal |
-| ⏱️ **Scheduler automático** | Búsqueda periódica configurable con APScheduler, con historial de cada ejecución |
+| ⏱️ **Scheduler automático** | Worker independiente con APScheduler, intervalo configurable e historial de cada ejecución |
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
 | 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
-| 🧪 **Tests automatizados** | Suite de 43 tests cubriendo auth, alertas, notificaciones, Telegram, scheduler, CI y migraciones |
-| 🐳 **Docker-ready** | `docker-compose` con FastAPI + Streamlit + PostgreSQL listos para desplegar |
+| 🧪 **Tests automatizados** | Suite de 69 tests con cobertura mínima en CI sobre auth, alertas, colas, Telegram, scheduler y migraciones |
+| 🐳 **Docker-ready** | `docker-compose` con FastAPI + worker + Streamlit + PostgreSQL listos para desplegar |
 | 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
 <br/>
@@ -119,6 +119,7 @@ jobradar/
 │
 ├── 📂 app/
 │   ├── 🐍 main.py                    # Punto de entrada FastAPI
+│   ├── 🐍 worker.py                  # Proceso independiente del scheduler
 │   ├── 🐍 database.py                # Configuración SQLAlchemy
 │   ├── 🐍 models.py                  # Modelos: usuarios, ofertas, alertas, canales, matches
 │   ├── 🐍 schemas.py                 # Schemas Pydantic
@@ -148,7 +149,7 @@ jobradar/
 │
 ├── 📂 migrations/                    # Migraciones Alembic versionadas
 │
-├── 📂 tests/                         # 43 tests: API, scheduler, notificaciones, Telegram, scraper, migraciones
+├── 📂 tests/                         # 69 tests: API, scheduler, colas, notificaciones, Telegram y migraciones
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
@@ -204,6 +205,7 @@ TELEGRAM_BOT_USERNAME=jobradar_alertas_bot
 # Scheduler
 SCRAPER_SCHEDULER_ENABLED=true
 SCRAPER_INTERVAL_MINUTES=10
+WORKER_POLL_INTERVAL_SECONDS=30
 ```
 
 ### 4️⃣ Migra la base de datos
@@ -218,13 +220,21 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### 6️⃣ Abre el dashboard
+### 6️⃣ Arranca el worker del scheduler
+
+En otra terminal:
+
+```bash
+python -m app.worker
+```
+
+### 7️⃣ Abre el dashboard
 
 ```bash
 streamlit run dashboard/main.py
 ```
 
-### 7️⃣ Docker Compose
+### 8️⃣ Docker Compose
 
 Para desarrollo local con recarga automática, API, dashboard y PostgreSQL:
 
@@ -238,6 +248,10 @@ Para un despliegue tipo producción, sin recarga automática ni montajes del có
 cp .env.production.example .env
 docker compose -f docker-compose.prod.yml up --build -d
 ```
+
+Si defines `DATABASE_URL` en `.env`, la API utilizará esa base gestionada. Si no la defines,
+Compose construirá la URL del PostgreSQL incluido a partir de `POSTGRES_USER`,
+`POSTGRES_PASSWORD` y `POSTGRES_DB`.
 
 En producción usa secretos reales, conserva `.env` fuera de git y ejecuta el smoke test:
 
@@ -273,8 +287,8 @@ GET    /notificaciones/telegram/chats → Detecta chats recientes del bot oficia
 POST   /notificaciones/canales/{id}/test → Prueba de envío
 GET    /notificaciones/logs        → Historial de notificaciones
 
-GET    /scheduler/status           → Estado del scheduler automático
-POST   /scraper/sync               → Sincronización manual
+GET    /scheduler/status           → Configuración e historial del worker automático
+POST   /scraper/sync               → Encola una sincronización manual persistente
 GET    /scraper/runs               → Historial de ejecuciones del scraper
 ```
 

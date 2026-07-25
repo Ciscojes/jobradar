@@ -13,16 +13,67 @@ from sqlalchemy.orm import Session, sessionmaker
 from .. import models
 from ..database import SessionLocal
 from ..scraper.adzuna import search_adzuna_offers
-from .notifications import notify_user_offer
+from .manual_sync import process_manual_sync_jobs
+from .notifications import enqueue_offer_notification
+from .notifications import process_notification_outbox
+from .persistence import get_or_create_job_offer, get_or_create_user_offer
 
 
 SCHEDULER_JOB_ID = "jobradar_adzuna_alerts"
+MAINTENANCE_JOB_ID = "jobradar_worker_maintenance"
 DEFAULT_INTERVAL_MINUTES = 10
 logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
     return models.utc_now()
+
+
+def run_worker_maintenance(
+    db: Session,
+    manual_processor: Callable[[Session], int] = process_manual_sync_jobs,
+    outbox_processor: Callable[[Session], int] = process_notification_outbox,
+) -> dict[str, int]:
+    heartbeat = (
+        db.query(models.WorkerHeartbeat)
+        .filter(models.WorkerHeartbeat.worker_name == "scheduler")
+        .first()
+    )
+    if heartbeat is None:
+        heartbeat = models.WorkerHeartbeat(worker_name="scheduler")
+        db.add(heartbeat)
+    heartbeat.status = "running"
+    heartbeat.last_seen_at = _now()
+    db.commit()
+
+    try:
+        manual_jobs = manual_processor(db)
+        notifications = outbox_processor(db)
+    except Exception as exc:
+        db.rollback()
+        heartbeat = (
+            db.query(models.WorkerHeartbeat)
+            .filter(models.WorkerHeartbeat.worker_name == "scheduler")
+            .one()
+        )
+        heartbeat.status = "error"
+        heartbeat.last_error = str(exc)
+        heartbeat.last_seen_at = _now()
+        db.commit()
+        raise
+
+    heartbeat = (
+        db.query(models.WorkerHeartbeat)
+        .filter(models.WorkerHeartbeat.worker_name == "scheduler")
+        .one()
+    )
+    heartbeat.status = "healthy"
+    heartbeat.last_error = None
+    heartbeat.last_seen_at = _now()
+    heartbeat.manual_jobs_processed += manual_jobs
+    heartbeat.notifications_processed += notifications
+    db.commit()
+    return {"manual_jobs": manual_jobs, "notifications": notifications}
 
 
 def ensure_scheduler_schema(engine: Engine) -> None:
@@ -132,10 +183,17 @@ def _scan_alert(
     new_offers = 0
     new_matches = 0
 
+    alert_id = alert.id
+    user_id = alert.user_id
+    keyword = alert.termino
+    province = _clean_filter(alert.ubicacion)
+    modality = _clean_filter(alert.modalidad)
+    db.commit()
+
     offers = search_func(
-        keyword=alert.termino,
-        provincia=_clean_filter(alert.ubicacion),
-        modalidad=_clean_filter(alert.modalidad),
+        keyword=keyword,
+        provincia=province,
+        modalidad=modality,
         fuente="Adzuna",
         limit=10,
     )
@@ -146,49 +204,24 @@ def _scan_alert(
         if not url:
             continue
 
-        db_offer = db.query(models.JobOffer).filter(models.JobOffer.enlace == url).first()
-        if db_offer is None:
-            db_offer = _build_job_offer(offer_data, url)
-            db.add(db_offer)
-            db.flush()
+        db_offer, offer_created = get_or_create_job_offer(
+            db,
+            _build_job_offer(offer_data, url),
+        )
+        if offer_created:
             new_offers += 1
 
-        # Evita duplicar el match si este usuario ya vio esta oferta
-        existing_match = (
-            db.query(models.UserOferta)
-            .filter(
-                models.UserOferta.user_id == alert.user_id,
-                models.UserOferta.oferta_id == db_offer.id,
-            )
-            .first()
+        user_oferta, match_created = get_or_create_user_offer(
+            db,
+            user_id=user_id,
+            offer_id=db_offer.id,
+            alert_id=alert_id,
         )
-        if existing_match:
+        if not match_created:
             continue
 
-        user_oferta = models.UserOferta(
-            user_id=alert.user_id,
-            oferta_id=db_offer.id,
-            alerta_id=alert.id,
-            estado="guardado",
-            matched_at=_now(),
-        )
-        db.add(user_oferta)
-        db.flush()
         new_matches += 1
-
-        offer_dict = {
-            "titulo": db_offer.titulo,
-            "empresa": db_offer.empresa,
-            "ubicacion": db_offer.ubicacion,
-            "modalidad": db_offer.modalidad,
-            "salario": db_offer.salario,
-            "fuente": db_offer.fuente,
-            "enlace": db_offer.enlace,
-        }
-        try:
-            notify_user_offer(db, user_oferta, offer_dict)
-        except Exception as notify_error:
-            logger.exception("Offer notification failed for user %s: %s", alert.user_id, notify_error)
+        enqueue_offer_notification(db, user_oferta)
 
     return offers_found, new_offers, new_matches
 
@@ -327,15 +360,33 @@ class JobRadarScheduler:
         except ValueError:
             return DEFAULT_INTERVAL_MINUTES
 
+    @property
+    def poll_interval_seconds(self) -> int:
+        raw_value = os.getenv("WORKER_POLL_INTERVAL_SECONDS", "30")
+        try:
+            return max(int(raw_value), 5)
+        except ValueError:
+            return 30
+
     def start(self) -> None:
-        if not self.enabled or self.scheduler.running:
+        if self.scheduler.running:
             return
 
+        if self.enabled:
+            self.scheduler.add_job(
+                self.run_once,
+                "interval",
+                minutes=self.interval_minutes,
+                id=SCHEDULER_JOB_ID,
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+            )
         self.scheduler.add_job(
-            self.run_once,
+            self.run_maintenance,
             "interval",
-            minutes=self.interval_minutes,
-            id=SCHEDULER_JOB_ID,
+            seconds=self.poll_interval_seconds,
+            id=MAINTENANCE_JOB_ID,
             replace_existing=True,
             max_instances=1,
             coalesce=True,
@@ -350,6 +401,13 @@ class JobRadarScheduler:
         db = self.session_factory()
         try:
             return run_scheduled_scraper(db=db)
+        finally:
+            db.close()
+
+    def run_maintenance(self) -> dict[str, int]:
+        db = self.session_factory()
+        try:
+            return run_worker_maintenance(db)
         finally:
             db.close()
 
@@ -378,7 +436,52 @@ def get_scheduler_status(db: Session) -> dict[str, Any]:
         .first()
     )
     execution_count = db.query(models.ScraperRun).count()
-    next_run = scheduler_service.next_run_time()
+    heartbeat = (
+        db.query(models.WorkerHeartbeat)
+        .filter(models.WorkerHeartbeat.worker_name == "scheduler")
+        .first()
+    )
+    if heartbeat:
+        current_time = _now()
+        if heartbeat.last_seen_at.tzinfo is None:
+            current_time = current_time.replace(tzinfo=None)
+        age_seconds = max(int((current_time - heartbeat.last_seen_at).total_seconds()), 0)
+        worker = {
+            "status": heartbeat.status,
+            "last_seen_at": heartbeat.last_seen_at,
+            "last_error": heartbeat.last_error,
+            "age_seconds": age_seconds,
+            "is_stale": age_seconds > max(scheduler_service.poll_interval_seconds * 3, 120),
+            "manual_jobs_processed": heartbeat.manual_jobs_processed,
+            "notifications_processed": heartbeat.notifications_processed,
+        }
+    else:
+        worker = {
+            "status": "unknown",
+            "last_seen_at": None,
+            "last_error": None,
+            "age_seconds": None,
+            "is_stale": True,
+            "manual_jobs_processed": 0,
+            "notifications_processed": 0,
+        }
+    queues = {
+        "manual_pending": (
+            db.query(models.ManualSyncJob)
+            .filter(models.ManualSyncJob.status == "pending")
+            .count()
+        ),
+        "notifications_pending": (
+            db.query(models.NotificationOutbox)
+            .filter(models.NotificationOutbox.status == "pending")
+            .count()
+        ),
+        "notifications_failed": (
+            db.query(models.NotificationOutbox)
+            .filter(models.NotificationOutbox.status == "failed")
+            .count()
+        ),
+    }
 
     return {
         "last_run": {
@@ -395,7 +498,11 @@ def get_scheduler_status(db: Session) -> dict[str, Any]:
         }
         if last_run
         else None,
-        "next_run": next_run,
+        # El scheduler vive en otro proceso. La API solo puede informar de su
+        # configuración y de las ejecuciones persistidas, no de su memoria local.
+        "next_run": None,
         "execution_count": execution_count,
-        "status": scheduler_service.state(),
+        "status": "enabled" if scheduler_service.enabled else "disabled",
+        "worker": worker,
+        "queues": queues,
     }

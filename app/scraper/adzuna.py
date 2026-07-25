@@ -4,6 +4,8 @@ from typing import Any
 
 import requests
 
+from ..config import get_settings
+
 
 ADZUNA_API_BASE = "https://api.adzuna.com/v1/api/jobs"
 ADZUNA_SOURCE = "Adzuna"
@@ -137,7 +139,9 @@ def search_adzuna_offers(
 ) -> list[dict[str, Any]]:
     config = get_adzuna_config()
     if not config.has_credentials:
-        return get_mock_adzuna_offers(keyword, provincia, modalidad, fuente, limit)
+        if get_settings().allow_mock_offers:
+            return get_mock_adzuna_offers(keyword, provincia, modalidad, fuente, limit)
+        raise RuntimeError("Adzuna no tiene credenciales configuradas")
 
     where = provincia
     if modalidad and modalidad.strip().lower() not in {"", "no especificado"}:
@@ -160,8 +164,10 @@ def search_adzuna_offers(
     try:
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
-    except requests.RequestException:
-        return get_mock_adzuna_offers(keyword, provincia, modalidad, fuente, limit)
+    except requests.RequestException as exc:
+        if get_settings().allow_mock_offers:
+            return get_mock_adzuna_offers(keyword, provincia, modalidad, fuente, limit)
+        raise RuntimeError("La consulta a Adzuna ha fallado") from exc
 
     data = response.json()
     items = data.get("results", [])

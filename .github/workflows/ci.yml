@@ -45,18 +45,32 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Compile Python sources
+        run: python -m compileall -q app dashboard tests
+
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements.txt
+
       - name: Run tests with SQLite
-        run: pytest -q
+        run: pytest -q --cov=app --cov=dashboard --cov-report=term-missing --cov-fail-under=60
         env:
-          DATABASE_URL: sqlite:///:memory:
-          TEST_DATABASE_URL: sqlite:///:memory:
+          DATABASE_URL: "sqlite:///:memory:"
+          TEST_DATABASE_URL: "sqlite:///:memory:"
+
+      - name: Verify Alembic metadata alignment
+        run: |
+          alembic upgrade head
+          alembic check
+        env:
+          AUTO_CREATE_TABLES: "false"
+          DATABASE_URL: "postgresql://jobradar:jobradar@localhost:5432/jobradar_test"
 
       - name: Run tests with PostgreSQL
         run: pytest -q
         env:
           AUTO_CREATE_TABLES: "false"
-          DATABASE_URL: postgresql://jobradar:jobradar@localhost:5432/jobradar_test
-          TEST_DATABASE_URL: postgresql://jobradar:jobradar@localhost:5432/jobradar_test
+          DATABASE_URL: "postgresql://jobradar:jobradar@localhost:5432/jobradar_test"
+          TEST_DATABASE_URL: "postgresql://jobradar:jobradar@localhost:5432/jobradar_test"
 
       - name: Validate smoke script
         run: python scripts/smoke_check.py --help
@@ -69,5 +83,16 @@ jobs:
           BACKEND_CORS_ORIGINS=http://localhost:8501 \
           TRUSTED_HOSTS=localhost,127.0.0.1 \
           TELEGRAM_BOT_USERNAME=jobradar_alertas_bot \
+          DATABASE_URL=postgresql://external-user:external-password@db.example.com:5432/jobradar \
             docker compose -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
+          grep -F "postgresql://external-user:external-password@db.example.com:5432/jobradar" /tmp/jobradar-compose-prod.yml
+          grep -F "HOME: /tmp" /tmp/jobradar-compose-prod.yml
           cp .env.production.example /tmp/jobradar-env-production.example
+
+      - name: Build production images
+        run: |
+          POSTGRES_PASSWORD=change-me \
+          SECRET_KEY=ci-secret-key-with-more-than-32-characters \
+          BACKEND_CORS_ORIGINS=http://localhost:8501 \
+          TRUSTED_HOSTS=localhost,127.0.0.1 \
+            docker compose -f docker-compose.prod.yml build api worker dashboard

@@ -79,7 +79,7 @@ def read_alerta(
     return get_user_alert_or_404(db, alerta_id, current_user.id)
 
 
-@router.put("/{alerta_id}", response_model=schemas.Alerta)
+@router.patch("/{alerta_id}", response_model=schemas.Alerta)
 def update_alerta(
     alerta_id: int,
     alerta: schemas.AlertaUpdate,
@@ -87,7 +87,7 @@ def update_alerta(
     current_user: models.User = Depends(get_current_user),
 ):
     db_alerta = get_user_alert_or_404(db, alerta_id, current_user.id)
-    for field, value in alerta.model_dump().items():
+    for field, value in alerta.model_dump(exclude_unset=True).items():
         setattr(db_alerta, field, value)
     db.commit()
     db.refresh(db_alerta)

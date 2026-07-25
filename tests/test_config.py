@@ -53,5 +53,6 @@ def test_production_accepts_secure_secret_key(monkeypatch):
     assert settings.secret_key == "x" * 32
     assert settings.cors_origins == ("https://app.example.com",)
     assert settings.trusted_hosts == ("api.example.com",)
+    assert settings.allow_mock_offers is False
 
     get_settings.cache_clear()

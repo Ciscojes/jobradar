@@ -5,6 +5,8 @@ from typing import Any
 
 import requests
 
+from ..config import get_settings
+
 
 INFOJOBS_API_URL = "https://api.infojobs.net/api/7/offer"
 INFOJOBS_SOURCE = "InfoJobs"
@@ -135,7 +137,9 @@ def search_infojobs_offers(
 ) -> list[dict[str, Any]]:
     config = get_infojobs_config()
     if not config.has_credentials:
-        return get_mock_infojobs_offers(keyword, provincia, modalidad, fuente, limit)
+        if get_settings().allow_mock_offers:
+            return get_mock_infojobs_offers(keyword, provincia, modalidad, fuente, limit)
+        raise RuntimeError("InfoJobs no tiene credenciales configuradas")
 
     params: dict[str, Any] = {
         "q": keyword,
@@ -154,8 +158,10 @@ def search_infojobs_offers(
             timeout=10,
         )
         response.raise_for_status()
-    except requests.RequestException:
-        return get_mock_infojobs_offers(keyword, provincia, modalidad, fuente, limit)
+    except requests.RequestException as exc:
+        if get_settings().allow_mock_offers:
+            return get_mock_infojobs_offers(keyword, provincia, modalidad, fuente, limit)
+        raise RuntimeError("La consulta a InfoJobs ha fallado") from exc
 
     data = response.json()
     items = data.get("items", [])

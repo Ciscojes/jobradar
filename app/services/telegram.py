@@ -1,11 +1,94 @@
+import base64
+import hashlib
+import hmac
 import logging
 import os
+import secrets
+import time
 from typing import Any
 
 import requests
 
+from ..config import get_settings
+
 logger = logging.getLogger(__name__)
 PLACEHOLDER_VALUES = {"", "tu_token", "tu_chat_id"}
+TELEGRAM_LINK_TTL_SECONDS = 600
+
+
+def _sign_token(payload: str) -> str:
+    digest = hmac.new(
+        get_settings().secret_key.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()[:12]
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _create_compact_token(payload: str) -> str:
+    encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).rstrip(b"=").decode("ascii")
+    return f"{encoded}{_sign_token(encoded)}"
+
+
+def _read_compact_token(token: str) -> str | None:
+    if len(token) <= 16:
+        return None
+    encoded, signature = token[:-16], token[-16:]
+    if not hmac.compare_digest(signature, _sign_token(encoded)):
+        return None
+    try:
+        padding = "=" * (-len(encoded) % 4)
+        return base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def _token_is_fresh(timestamp: str) -> bool:
+    try:
+        age = int(time.time()) - int(timestamp)
+    except ValueError:
+        return False
+    return -30 <= age <= TELEGRAM_LINK_TTL_SECONDS
+
+
+def create_telegram_link_token(user_id: int) -> str:
+    payload = f"link|{user_id}|{int(time.time())}|{secrets.token_urlsafe(4)}"
+    return _create_compact_token(payload)
+
+
+def verify_telegram_link_token(token: str, user_id: int) -> bool:
+    payload = _read_compact_token(token)
+    if payload is None:
+        return False
+    try:
+        prefix, token_user_id, timestamp, _nonce = payload.split("|", 3)
+    except ValueError:
+        return False
+    return (
+        prefix == "link"
+        and token_user_id == str(user_id)
+        and _token_is_fresh(timestamp)
+    )
+
+
+def create_telegram_channel_token(user_id: int, chat_id: str) -> str:
+    return _create_compact_token(f"channel|{user_id}|{chat_id}|{int(time.time())}")
+
+
+def verify_telegram_channel_token(token: str, user_id: int, chat_id: str) -> bool:
+    payload = _read_compact_token(token)
+    if payload is None:
+        return False
+    try:
+        prefix, token_user_id, token_chat_id, timestamp = payload.split("|", 3)
+    except ValueError:
+        return False
+    return (
+        prefix == "channel"
+        and token_user_id == str(user_id)
+        and token_chat_id == str(chat_id)
+        and _token_is_fresh(timestamp)
+    )
 
 
 def _get_bot_token() -> str | None:
@@ -49,7 +132,10 @@ def send_telegram_notification(text: str, chat_id: str | None = None) -> tuple[b
         return False, "failed", str(exc)
 
 
-def get_recent_telegram_chats(limit: int = 20) -> tuple[list[dict[str, Any]], str | None]:
+def get_recent_telegram_chats(
+    link_token: str,
+    limit: int = 100,
+) -> tuple[list[dict[str, Any]], str | None]:
     """
     Devuelve chats privados recientes que enviaron mensajes al bot oficial.
     El token nunca sale del servidor; el dashboard solo recibe chat_id y nombre.
@@ -72,6 +158,8 @@ def get_recent_telegram_chats(limit: int = 20) -> tuple[list[dict[str, Any]], st
     chats: dict[int, dict[str, Any]] = {}
     for update in data.get("result", []):
         message = update.get("message") or update.get("edited_message") or {}
+        if (message.get("text") or "").strip() != f"/start {link_token}":
+            continue
         chat = message.get("chat") or {}
         chat_id = chat.get("id")
         if not chat_id or chat.get("type") != "private":

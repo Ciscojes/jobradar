@@ -87,8 +87,14 @@ class AlertaCreate(AlertaBase):
     pass
 
 
-class AlertaUpdate(AlertaBase):
-    pass
+class AlertaUpdate(BaseModel):
+    termino: Optional[str] = None
+    ubicacion: Optional[str] = None
+    categoria: Optional[str] = None
+    salario_minimo: Optional[int] = None
+    modalidad: Optional[str] = None
+    fuente: Optional[str] = None
+    activo: Optional[bool] = None
 
 
 class Alerta(AlertaBase):
@@ -108,13 +114,14 @@ class NotificationChannelBase(BaseModel):
 
 
 class NotificationChannelCreate(NotificationChannelBase):
-    pass
+    verification_token: Optional[str] = None
 
 
 class NotificationChannelUpdate(BaseModel):
     type: Optional[str] = None
     destination: Optional[str] = None
     is_active: Optional[bool] = None
+    verification_token: Optional[str] = None
 
 
 class NotificationChannel(NotificationChannelBase):

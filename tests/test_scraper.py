@@ -1,5 +1,9 @@
+import pytest
+
+from app.config import get_settings
 from app.scraper.adzuna import fetch_adzuna_offers, get_adzuna_config, search_adzuna_offers
 from app.scraper.indeed import fetch_indeed_offers
+from app.scraper.infojobs import search_infojobs_offers
 
 
 REQUIRED_OFFER_FIELDS = {"titulo", "empresa", "ubicacion", "enlace", "fuente"}
@@ -107,3 +111,49 @@ def test_indeed_devuelve_estructura_valida_con_mock(monkeypatch):
     assert_valid_offer_structure(offers)
     assert offers[0]["fuente"] == "Indeed"
     assert len(offers) <= 2
+
+
+def _configure_production(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SECRET_KEY", "x" * 32)
+    monkeypatch.setenv("BACKEND_CORS_ORIGINS", "https://app.example.com")
+    monkeypatch.setenv("TRUSTED_HOSTS", "api.example.com")
+    monkeypatch.delenv("ALLOW_MOCK_OFFERS", raising=False)
+    get_settings.cache_clear()
+
+
+def test_adzuna_no_genera_mocks_en_produccion_sin_credenciales(monkeypatch):
+    _configure_production(monkeypatch)
+    monkeypatch.delenv("ADZUNA_APP_ID", raising=False)
+    monkeypatch.delenv("ADZUNA_APP_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="credenciales"):
+        search_adzuna_offers(keyword="python")
+
+    get_settings.cache_clear()
+
+
+def test_infojobs_no_genera_mocks_en_produccion_sin_credenciales(monkeypatch):
+    _configure_production(monkeypatch)
+    monkeypatch.delenv("INFOJOBS_CLIENT_ID", raising=False)
+    monkeypatch.delenv("INFOJOBS_CLIENT_SECRET", raising=False)
+
+    with pytest.raises(RuntimeError, match="credenciales"):
+        search_infojobs_offers(keyword="python")
+
+    get_settings.cache_clear()
+
+
+def test_indeed_no_genera_mocks_en_produccion_si_el_scraping_falla(monkeypatch):
+    _configure_production(monkeypatch)
+
+    class FakeResponse:
+        status_code = 403
+        text = ""
+
+    monkeypatch.setattr("app.scraper.indeed.requests.get", lambda *args, **kwargs: FakeResponse())
+
+    with pytest.raises(RuntimeError, match="Indeed"):
+        fetch_indeed_offers(query="python")
+
+    get_settings.cache_clear()

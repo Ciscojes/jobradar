@@ -8,7 +8,8 @@ Copia `.env.production.example` como `.env` en el entorno de producción y relle
 
 - `APP_ENV=production`
 - `SECRET_KEY`: valor aleatorio de 32+ caracteres.
-- `POSTGRES_PASSWORD` o `DATABASE_URL` si usas una base gestionada.
+- `POSTGRES_PASSWORD`: contraseña del PostgreSQL incluido en Compose.
+- `DATABASE_URL` (opcional): si se define, la API usa esa base gestionada en lugar de la URL interna.
 - `BACKEND_CORS_ORIGINS`: URL pública del dashboard.
 - `TRUSTED_HOSTS`: hostnames públicos permitidos para la API/dashboard.
 - `TELEGRAM_BOT_TOKEN`: token privado del bot oficial.
@@ -31,6 +32,9 @@ El servicio `api` ejecuta:
 alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+El servicio `worker` procesa búsquedas programadas, sincronizaciones manuales y el outbox
+de notificaciones. `WORKER_POLL_INTERVAL_SECONDS` controla la frecuencia de las colas.
 
 ## Smoke test
 
@@ -79,12 +83,12 @@ Antes de producción, rota cualquier token que se haya usado durante pruebas.
 - Mantener `DOCS_ENABLED=false` si Swagger no debe ser público.
 - Ejecutar `scripts/smoke_check.py` después de cada despliegue.
 - Revisar logs de `failed` en notificaciones y errores 401/429.
-- Confirmar que el scheduler corre una sola vez por entorno para evitar duplicar búsquedas.
+- Confirmar que existe exactamente una réplica del servicio `worker` para evitar búsquedas duplicadas.
 
 ## Decisiones pendientes
 
 - Plataforma: VPS, Render, Railway, Fly.io, AWS, GCP, Azure, etc.
 - Dominios: API y dashboard.
 - HTTPS/proxy: proveedor gestionado o reverse proxy.
-- Scheduler: embebido en API para MVP, worker separado para producción más estricta.
+- Conectar las métricas y el heartbeat expuestos en `/scheduler/status` al monitor elegido.
 - Backups de PostgreSQL.

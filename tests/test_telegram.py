@@ -1,4 +1,11 @@
-from app.services.telegram import get_recent_telegram_chats, send_telegram_notification
+import re
+
+from app.services.telegram import (
+    create_telegram_link_token,
+    get_recent_telegram_chats,
+    send_telegram_notification,
+    verify_telegram_link_token,
+)
 
 
 def test_telegram_notification_is_simulated_without_credentials(monkeypatch):
@@ -10,6 +17,15 @@ def test_telegram_notification_is_simulated_without_credentials(monkeypatch):
     assert sent is True
     assert status == "simulated"
     assert error is None
+
+
+def test_telegram_link_token_es_compatible_con_deep_links():
+    token = create_telegram_link_token(123)
+
+    assert len(token) <= 64
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", token)
+    assert verify_telegram_link_token(token, 123) is True
+    assert verify_telegram_link_token(token, 456) is False
 
 
 def test_telegram_notification_sends_with_configured_credentials(monkeypatch):
@@ -62,7 +78,7 @@ def test_telegram_notification_reports_api_failure(monkeypatch):
     assert error == "400 - bad request"
 
 
-def test_get_recent_telegram_chats_returns_private_chats(monkeypatch):
+def test_get_recent_telegram_chats_returns_only_linked_private_chat(monkeypatch):
     class FakeResponse:
         status_code = 200
 
@@ -72,22 +88,34 @@ def test_get_recent_telegram_chats_returns_private_chats(monkeypatch):
                 "result": [
                     {
                         "message": {
+                            "text": "/start secure-link-token",
                             "chat": {
                                 "id": 1463980165,
                                 "type": "private",
                                 "first_name": "Jesus",
                                 "last_name": "Granados",
                                 "username": "jesus",
-                            }
+                            },
                         }
                     },
                     {
                         "message": {
+                            "text": "/start another-user-token",
+                            "chat": {
+                                "id": 999999,
+                                "type": "private",
+                                "first_name": "Otro usuario",
+                            },
+                        }
+                    },
+                    {
+                        "message": {
+                            "text": "/start secure-link-token",
                             "chat": {
                                 "id": -100,
                                 "type": "group",
                                 "title": "Grupo",
-                            }
+                            },
                         }
                     },
                 ],
@@ -99,7 +127,7 @@ def test_get_recent_telegram_chats_returns_private_chats(monkeypatch):
         lambda url, params, timeout: FakeResponse(),
     )
 
-    chats, error = get_recent_telegram_chats()
+    chats, error = get_recent_telegram_chats("secure-link-token")
 
     assert error is None
     assert chats == [
@@ -114,7 +142,7 @@ def test_get_recent_telegram_chats_returns_private_chats(monkeypatch):
 def test_get_recent_telegram_chats_reports_missing_configuration(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
 
-    chats, error = get_recent_telegram_chats()
+    chats, error = get_recent_telegram_chats("secure-link-token")
 
     assert chats == []
     assert error == "Telegram no está configurado en el servidor."
