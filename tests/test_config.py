@@ -42,6 +42,7 @@ def test_production_rejects_wildcard_trusted_hosts(monkeypatch):
 
 def test_production_accepts_secure_secret_key(monkeypatch):
     get_settings.cache_clear()
+    monkeypatch.delenv("ALLOW_MOCK_OFFERS", raising=False)
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("SECRET_KEY", "x" * 32)
     monkeypatch.setenv("BACKEND_CORS_ORIGINS", "https://app.example.com")
