@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.10-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -11,7 +11,7 @@ ARG REQUIREMENTS_FILE=requirements.txt
 COPY ${REQUIREMENTS_FILE} /code/requirements.txt
 
 RUN addgroup --system app && adduser --system --ingroup app app \
-    && pip install --no-cache-dir -r /code/requirements.txt
+    && pip install --no-cache-dir --require-hashes -r /code/requirements.txt
 
 COPY . .
 

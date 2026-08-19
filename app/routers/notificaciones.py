@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from .. import models, schemas
+from ..config import get_settings
 from ..database import get_db
 from ..deps import get_current_user
+from ..rate_limit import limit_user_mutation
 from ..services.notifications import send_channel_notification
 from ..services.telegram import (
     create_telegram_channel_token,
@@ -102,6 +104,14 @@ def create_channel(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "channels", db)
+    channel_count = (
+        db.query(models.NotificationChannel)
+        .filter(models.NotificationChannel.user_id == current_user.id)
+        .count()
+    )
+    if channel_count >= get_settings().max_channels_per_user:
+        raise HTTPException(status_code=409, detail="Has alcanzado el límite de canales")
     channel_type = payload.type.lower().strip()
     if channel_type != "telegram":
         raise HTTPException(status_code=400, detail="El canal debe ser 'telegram'")
@@ -156,7 +166,9 @@ def create_channel(
 @router.post("/telegram/link")
 def create_telegram_link(
     current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    limit_user_mutation(current_user.id, "telegram-link", db)
     return {"link_token": create_telegram_link_token(current_user.id)}
 
 
@@ -185,6 +197,7 @@ def update_channel(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "channels", db)
     channel = (
         db.query(models.NotificationChannel)
         .filter(
@@ -248,6 +261,7 @@ def test_channel(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "channel-test", db)
     channel = (
         db.query(models.NotificationChannel)
         .filter(

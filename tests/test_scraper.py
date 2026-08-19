@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.scraper.adzuna import fetch_adzuna_offers, get_adzuna_config, search_adzuna_offers
 from app.scraper.indeed import fetch_indeed_offers
 from app.scraper.infojobs import search_infojobs_offers
+from app.scraper.http import get_with_retry
 
 
 REQUIRED_OFFER_FIELDS = {"titulo", "empresa", "ubicacion", "enlace", "fuente"}
@@ -157,3 +158,22 @@ def test_indeed_no_genera_mocks_en_produccion_si_el_scraping_falla(monkeypatch):
         fetch_indeed_offers(query="python")
 
     get_settings.cache_clear()
+
+
+def test_http_reintenta_solo_respuestas_transitorias(monkeypatch):
+    statuses = iter((503, 429, 200))
+    sleeps = []
+
+    class FakeResponse:
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+    monkeypatch.setattr("app.scraper.http.time.sleep", lambda delay: sleeps.append(delay))
+    response = get_with_retry(
+        "https://example.com/jobs",
+        request_get=lambda *args, **kwargs: FakeResponse(next(statuses)),
+        backoff_seconds=0.01,
+    )
+
+    assert response.status_code == 200
+    assert sleeps == [0.01, 0.02]

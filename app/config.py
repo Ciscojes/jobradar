@@ -21,8 +21,8 @@ def _get_int(name: str, default: int) -> int:
         return default
     try:
         return int(value)
-    except ValueError:
-        return default
+    except ValueError as exc:
+        raise RuntimeError(f"{name} debe ser un número entero") from exc
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,12 @@ class Settings:
     allow_mock_offers: bool
     sync_rate_limit_requests: int
     sync_rate_limit_window_seconds: int
+    mutation_rate_limit_requests: int
+    mutation_rate_limit_window_seconds: int
+    max_alerts_per_user: int
+    max_channels_per_user: int
+    metrics_enabled: bool
+    metrics_token: str | None
     trust_proxy_headers: bool
 
     @property
@@ -74,6 +80,12 @@ def get_settings() -> Settings:
         raise RuntimeError("BACKEND_CORS_ORIGINS no puede usar '*' en producción")
     if is_production and "*" in trusted_hosts:
         raise RuntimeError("TRUSTED_HOSTS no puede usar '*' en producción")
+    metrics_enabled = _get_bool("METRICS_ENABLED", not is_production)
+    metrics_token = os.getenv("METRICS_TOKEN") or None
+    if is_production and metrics_enabled and (
+        metrics_token is None or len(metrics_token) < 24
+    ):
+        raise RuntimeError("METRICS_TOKEN debe ser seguro si las métricas están activas")
 
     return Settings(
         app_env=app_env,
@@ -90,5 +102,11 @@ def get_settings() -> Settings:
         allow_mock_offers=_get_bool("ALLOW_MOCK_OFFERS", not is_production),
         sync_rate_limit_requests=_get_int("SYNC_RATE_LIMIT_REQUESTS", 5),
         sync_rate_limit_window_seconds=_get_int("SYNC_RATE_LIMIT_WINDOW_SECONDS", 60),
+        mutation_rate_limit_requests=_get_int("MUTATION_RATE_LIMIT_REQUESTS", 30),
+        mutation_rate_limit_window_seconds=_get_int("MUTATION_RATE_LIMIT_WINDOW_SECONDS", 60),
+        max_alerts_per_user=_get_int("MAX_ALERTS_PER_USER", 25),
+        max_channels_per_user=_get_int("MAX_CHANNELS_PER_USER", 5),
+        metrics_enabled=metrics_enabled,
+        metrics_token=metrics_token,
         trust_proxy_headers=_get_bool("TRUST_PROXY_HEADERS", False),
     )

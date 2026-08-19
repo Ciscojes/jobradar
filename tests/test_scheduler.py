@@ -130,6 +130,7 @@ def test_scheduler_status_devuelve_ultima_ejecucion_y_conteo(monkeypatch):
         assert status["worker"]["is_stale"] is False
         assert status["queues"] == {
             "manual_pending": 0,
+            "alert_pending": 0,
             "notifications_pending": 0,
             "notifications_failed": 0,
         }

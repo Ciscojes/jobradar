@@ -5,6 +5,7 @@ from typing import Any
 import requests
 
 from ..config import get_settings
+from .http import get_with_retry
 
 
 ADZUNA_API_BASE = "https://api.adzuna.com/v1/api/jobs"
@@ -162,14 +163,17 @@ def search_adzuna_offers(
     url = f"{ADZUNA_API_BASE}/{config.country}/search/1"
 
     try:
-        response = requests.get(url, params=params, timeout=10)
+        response = get_with_retry(url, params=params, timeout=10)
         response.raise_for_status()
     except requests.RequestException as exc:
         if get_settings().allow_mock_offers:
             return get_mock_adzuna_offers(keyword, provincia, modalidad, fuente, limit)
         raise RuntimeError("La consulta a Adzuna ha fallado") from exc
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError("Adzuna devolvió una respuesta inválida") from exc
     items = data.get("results", [])
     offers = [normalize_adzuna_offer(item, source=fuente) for item in items]
     return [offer for offer in offers if offer["enlace"]][:limit]

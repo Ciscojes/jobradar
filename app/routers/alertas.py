@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
+from ..config import get_settings
 from ..deps import get_current_user
-from ..services.scheduler import scan_single_alert
+from ..rate_limit import limit_user_mutation
+from ..services.alert_scans import enqueue_alert_scan
 
 router = APIRouter(
     prefix="/alertas",
@@ -54,18 +56,22 @@ def create_alerta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "alerts", db)
+    alert_count = (
+        db.query(models.Alerta)
+        .filter(models.Alerta.user_id == current_user.id)
+        .count()
+    )
+    if alert_count >= get_settings().max_alerts_per_user:
+        raise HTTPException(status_code=409, detail="Has alcanzado el límite de alertas")
     db_alerta = models.Alerta(**alerta.model_dump(), user_id=current_user.id)
     db.add(db_alerta)
     db.commit()
     db.refresh(db_alerta)
 
-    # Busqueda inmediata: no esperamos al siguiente intervalo del scheduler
-    # para que el usuario vea ofertas recomendadas nada mas crear la alerta.
     if db_alerta.activo:
-        try:
-            scan_single_alert(db, db_alerta)
-        except Exception as scan_error:
-            logger.exception("Alert scan failed for alert %s: %s", db_alerta.id, scan_error)
+        enqueue_alert_scan(db, db_alerta.id)
+        db.commit()
 
     return db_alerta
 
@@ -86,6 +92,7 @@ def update_alerta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "alerts", db)
     db_alerta = get_user_alert_or_404(db, alerta_id, current_user.id)
     for field, value in alerta.model_dump(exclude_unset=True).items():
         setattr(db_alerta, field, value)
@@ -100,15 +107,14 @@ def activar_alerta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "alerts", db)
     db_alerta = get_user_alert_or_404(db, alerta_id, current_user.id)
     db_alerta.activo = True
     db.commit()
     db.refresh(db_alerta)
 
-    try:
-        scan_single_alert(db, db_alerta)
-    except Exception as scan_error:
-        logger.exception("Alert scan failed for alert %s: %s", db_alerta.id, scan_error)
+    enqueue_alert_scan(db, db_alerta.id)
+    db.commit()
 
     return db_alerta
 
@@ -119,6 +125,7 @@ def desactivar_alerta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "alerts", db)
     db_alerta = get_user_alert_or_404(db, alerta_id, current_user.id)
     db_alerta.activo = False
     db.commit()
@@ -132,6 +139,7 @@ def delete_alerta(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    limit_user_mutation(current_user.id, "alerts", db)
     db_alerta = get_user_alert_or_404(db, alerta_id, current_user.id)
     db.delete(db_alerta)
     db.commit()

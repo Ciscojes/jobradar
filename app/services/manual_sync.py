@@ -8,8 +8,7 @@ from .. import models
 from ..database import SessionLocal
 from ..scraper.adzuna import fetch_adzuna_offers
 from ..scraper.indeed import fetch_indeed_offers
-from .notifications import enqueue_offer_notification
-from .persistence import get_or_create_job_offer, get_or_create_user_offer
+from .ingestion import match_offer_to_alert, offer_matches_alert, persist_offer
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +18,6 @@ def enqueue_manual_sync(db: Session, user_id: int, query: str) -> models.ManualS
     db.add(job)
     db.flush()
     return job
-
-
-def _offer_matches_alert(offer_data: dict, alert: models.Alert) -> bool:
-    searchable_text = " ".join(
-        str(offer_data.get(field) or "")
-        for field in ("titulo", "descripcion", "empresa")
-    ).lower()
-    if alert.termino.lower() not in searchable_text:
-        return False
-    location = (alert.ubicacion or "Cualquiera").lower()
-    if location != "cualquiera" and location not in str(offer_data.get("ubicacion") or "").lower():
-        return False
-    modality = (alert.modalidad or "Cualquiera").lower()
-    if modality != "cualquiera" and modality not in str(offer_data.get("modalidad") or "").lower():
-        return False
-    return True
 
 
 def run_sync_task(
@@ -54,22 +37,14 @@ def run_sync_task(
             .all()
         )
         for offer_data in offers:
-            candidate = models.JobOffer(**offer_data)
-            offer, offer_created = get_or_create_job_offer(db, candidate)
-            if offer_created:
-                new_offers += 1
-
+            offer, offer_created = persist_offer(db, offer_data)
+            if offer is None:
+                continue
+            new_offers += int(offer_created)
             for alert in active_alerts:
-                if not _offer_matches_alert(offer_data, alert):
+                if not offer_matches_alert(offer_data, alert):
                     continue
-                match, match_created = get_or_create_user_offer(
-                    db,
-                    user_id=user_id,
-                    offer_id=offer.id,
-                    alert_id=alert.id,
-                )
-                if match_created:
-                    enqueue_offer_notification(db, match)
+                match_offer_to_alert(db, offer, alert)
                 break
         db.commit()
         return new_offers

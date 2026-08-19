@@ -1,21 +1,21 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 
 
 # --- schemas para Auth ---
 class UserCreate(BaseModel):
-    email: str
-    password: str = Field(min_length=8)
-    nombre: Optional[str] = None
-    puesto_deseado: Optional[str] = None
-    ubicacion_preferida: Optional[str] = "Cualquiera"
-    modalidad_preferida: Optional[str] = "Cualquiera"
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=128)
+    nombre: Optional[str] = Field(default=None, max_length=120)
+    puesto_deseado: Optional[str] = Field(default=None, max_length=160)
+    ubicacion_preferida: Optional[str] = Field(default="Cualquiera", max_length=160)
+    modalidad_preferida: Optional[str] = Field(default="Cualquiera", max_length=80)
 
 
 class UserLogin(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class User(BaseModel):
@@ -34,12 +34,12 @@ class User(BaseModel):
 
 
 class UserProfileUpdate(BaseModel):
-    nombre: Optional[str] = None
-    puesto_deseado: Optional[str] = None
-    ubicacion_preferida: Optional[str] = None
-    modalidad_preferida: Optional[str] = None
-    nivel_experiencia: Optional[str] = None
-    bio: Optional[str] = None
+    nombre: Optional[str] = Field(default=None, max_length=120)
+    puesto_deseado: Optional[str] = Field(default=None, max_length=160)
+    ubicacion_preferida: Optional[str] = Field(default=None, max_length=160)
+    modalidad_preferida: Optional[str] = Field(default=None, max_length=80)
+    nivel_experiencia: Optional[str] = Field(default=None, max_length=80)
+    bio: Optional[str] = Field(default=None, max_length=5_000)
 
 
 class Token(BaseModel):
@@ -49,22 +49,22 @@ class Token(BaseModel):
 
 # --- schemas para Ofertas ---
 class OfertaBase(BaseModel):
-    titulo: str
-    empresa: str
-    ubicacion: str
-    modalidad: Optional[str] = "No especificado"
-    salario: Optional[str] = "No especificado"
-    descripcion: Optional[str] = None
-    enlace: str
-    fuente: str
-    estado: Optional[str] = "guardado"
-    fecha_publicacion: Optional[str] = None
+    titulo: str = Field(min_length=1, max_length=300)
+    empresa: str = Field(min_length=1, max_length=200)
+    ubicacion: str = Field(min_length=1, max_length=200)
+    modalidad: Optional[str] = Field(default="No especificado", max_length=80)
+    salario: Optional[str] = Field(default="No especificado", max_length=120)
+    descripcion: Optional[str] = Field(default=None, max_length=20_000)
+    enlace: str = Field(min_length=1, max_length=2_048)
+    fuente: str = Field(min_length=1, max_length=80)
+    estado: Optional[Literal["guardado", "aplicado", "descartado"]] = "guardado"
+    fecha_publicacion: Optional[str] = Field(default=None, max_length=40)
 
 class OfertaCreate(OfertaBase):
     pass
 
 class OfertaUpdateEstado(BaseModel):
-    estado: str  # "guardado", "aplicado", "descartado"
+    estado: Literal["guardado", "aplicado", "descartado"]
 
 class Oferta(OfertaBase):
     id: int
@@ -75,12 +75,12 @@ class Oferta(OfertaBase):
 
 # --- schemas para Alertas ---
 class AlertaBase(BaseModel):
-    termino: str
-    ubicacion: Optional[str] = "Cualquiera"
-    categoria: Optional[str] = None
-    salario_minimo: Optional[int] = None
-    modalidad: Optional[str] = "Cualquiera"
-    fuente: Optional[str] = "Cualquiera"
+    termino: str = Field(min_length=1, max_length=160)
+    ubicacion: Optional[str] = Field(default="Cualquiera", max_length=160)
+    categoria: Optional[str] = Field(default=None, max_length=120)
+    salario_minimo: Optional[int] = Field(default=None, ge=0, le=100_000_000)
+    modalidad: Optional[str] = Field(default="Cualquiera", max_length=80)
+    fuente: Optional[str] = Field(default="Cualquiera", max_length=80)
     activo: Optional[bool] = True
 
 class AlertaCreate(AlertaBase):
@@ -88,12 +88,12 @@ class AlertaCreate(AlertaBase):
 
 
 class AlertaUpdate(BaseModel):
-    termino: Optional[str] = None
-    ubicacion: Optional[str] = None
-    categoria: Optional[str] = None
-    salario_minimo: Optional[int] = None
-    modalidad: Optional[str] = None
-    fuente: Optional[str] = None
+    termino: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    ubicacion: Optional[str] = Field(default=None, max_length=160)
+    categoria: Optional[str] = Field(default=None, max_length=120)
+    salario_minimo: Optional[int] = Field(default=None, ge=0, le=100_000_000)
+    modalidad: Optional[str] = Field(default=None, max_length=80)
+    fuente: Optional[str] = Field(default=None, max_length=80)
     activo: Optional[bool] = None
 
 
@@ -108,8 +108,8 @@ class Alerta(AlertaBase):
 
 # --- schemas para Canales de notificacion ---
 class NotificationChannelBase(BaseModel):
-    type: str  # "telegram"
-    destination: str
+    type: str = Field(min_length=1, max_length=40)
+    destination: str = Field(min_length=1, max_length=200)
     is_active: Optional[bool] = True
 
 
@@ -118,10 +118,10 @@ class NotificationChannelCreate(NotificationChannelBase):
 
 
 class NotificationChannelUpdate(BaseModel):
-    type: Optional[str] = None
-    destination: Optional[str] = None
+    type: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    destination: Optional[str] = Field(default=None, min_length=1, max_length=200)
     is_active: Optional[bool] = None
-    verification_token: Optional[str] = None
+    verification_token: Optional[str] = Field(default=None, max_length=512)
 
 
 class NotificationChannel(NotificationChannelBase):

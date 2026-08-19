@@ -1,14 +1,2 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-pydantic
-python-dotenv
-requests
-beautifulsoup4
-streamlit
-pandas
-pytest
-httpx2==2.9.1
-apscheduler
-alembic
+-r requirements-api.txt
+-r requirements-dashboard.txt

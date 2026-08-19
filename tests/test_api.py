@@ -119,6 +119,16 @@ def test_rutas_protegidas_declaran_get_current_user():
         assert get_current_user in dependencies
 
 
+def test_creacion_publica_de_ofertas_no_esta_expuesta():
+    routes = {
+        (route.path, method)
+        for route in app.routes
+        for method in getattr(route, "methods", set())
+    }
+
+    assert ("/ofertas/", "POST") not in routes
+
+
 def test_endpoint_ofertas_responde_y_lista_ofertas(db_session):
     response = read_ofertas(db=db_session)
 

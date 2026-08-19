@@ -98,12 +98,12 @@ def read_oferta(
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
     return db_oferta
 
-@router.post("/", response_model=schemas.Oferta, status_code=status.HTTP_201_CREATED)
 def create_oferta(
     oferta: schemas.OfertaCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Ayudante interno para fixtures/importadores; no se expone como API pública."""
     # Check if duplicate url
     db_existing = db.query(models.Oferta).filter(models.Oferta.enlace == oferta.enlace).first()
     if db_existing:

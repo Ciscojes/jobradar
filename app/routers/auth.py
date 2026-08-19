@@ -14,7 +14,7 @@ from ..core.security import (
 from ..database import get_db
 from ..deps import get_current_user
 from ..rate_limit import limit_auth_attempts
-from ..services.scheduler import scan_single_alert
+from ..services.alert_scans import enqueue_alert_scan
 
 
 router = APIRouter(
@@ -56,10 +56,8 @@ def _ensure_profile_alert(db: Session, user: models.User) -> None:
     db.commit()
     db.refresh(alerta)
 
-    try:
-        scan_single_alert(db, alerta)
-    except Exception as scan_error:
-        logger.exception("Initial recommendations failed for user %s: %s", user.id, scan_error)
+    enqueue_alert_scan(db, alerta.id)
+    db.commit()
 
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)

@@ -6,6 +6,7 @@ from typing import Any
 import requests
 
 from ..config import get_settings
+from .http import get_with_retry
 
 
 INFOJOBS_API_URL = "https://api.infojobs.net/api/7/offer"
@@ -151,7 +152,7 @@ def search_infojobs_offers(
         params["teleworking"] = modalidad
 
     try:
-        response = requests.get(
+        response = get_with_retry(
             INFOJOBS_API_URL,
             headers=build_auth_headers(config),
             params=params,
@@ -163,7 +164,10 @@ def search_infojobs_offers(
             return get_mock_infojobs_offers(keyword, provincia, modalidad, fuente, limit)
         raise RuntimeError("La consulta a InfoJobs ha fallado") from exc
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError("InfoJobs devolvió una respuesta inválida") from exc
     items = data.get("items", [])
     offers = [normalize_infojobs_offer(item, source=fuente) for item in items]
     return [offer for offer in offers if offer["enlace"]][:limit]

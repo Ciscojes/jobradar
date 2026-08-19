@@ -13,10 +13,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from .. import models
 from ..database import SessionLocal
 from ..scraper.adzuna import search_adzuna_offers
+from ..rate_limit import cleanup_rate_limit_buckets
+from .alert_scans import enqueue_active_alert_scans, process_alert_scan_jobs
 from .manual_sync import process_manual_sync_jobs
-from .notifications import enqueue_offer_notification
 from .notifications import process_notification_outbox
-from .persistence import get_or_create_job_offer, get_or_create_user_offer
+from .ingestion import ingest_offer_for_alert
 
 
 SCHEDULER_JOB_ID = "jobradar_adzuna_alerts"
@@ -32,6 +33,7 @@ def _now() -> datetime:
 def run_worker_maintenance(
     db: Session,
     manual_processor: Callable[[Session], int] = process_manual_sync_jobs,
+    alert_processor: Callable[[Session], int] = process_alert_scan_jobs,
     outbox_processor: Callable[[Session], int] = process_notification_outbox,
 ) -> dict[str, int]:
     heartbeat = (
@@ -47,7 +49,9 @@ def run_worker_maintenance(
     db.commit()
 
     try:
+        cleanup_rate_limit_buckets(db)
         manual_jobs = manual_processor(db)
+        alert_jobs = alert_processor(db)
         notifications = outbox_processor(db)
     except Exception as exc:
         db.rollback()
@@ -71,9 +75,14 @@ def run_worker_maintenance(
     heartbeat.last_error = None
     heartbeat.last_seen_at = _now()
     heartbeat.manual_jobs_processed += manual_jobs
+    heartbeat.alert_jobs_processed += alert_jobs
     heartbeat.notifications_processed += notifications
     db.commit()
-    return {"manual_jobs": manual_jobs, "notifications": notifications}
+    return {
+        "manual_jobs": manual_jobs,
+        "alert_jobs": alert_jobs,
+        "notifications": notifications,
+    }
 
 
 def ensure_scheduler_schema(engine: Engine) -> None:
@@ -127,6 +136,16 @@ def ensure_scheduler_schema(engine: Engine) -> None:
             # ya se crea nullable en el esquema actual de modelos.
             pass
 
+    if "worker_heartbeats" in existing_tables:
+        columns = {
+            column["name"] for column in inspector.get_columns("worker_heartbeats")
+        }
+        if "alert_jobs_processed" not in columns:
+            statements.append(
+                "ALTER TABLE worker_heartbeats "
+                "ADD COLUMN alert_jobs_processed INTEGER NOT NULL DEFAULT 0"
+            )
+
     if not statements:
         return
 
@@ -149,26 +168,6 @@ def _should_search_adzuna(alert: models.Alert) -> bool:
     return source in {"cualquiera", "adzuna"}
 
 
-def _offer_url(offer_data: dict[str, Any]) -> str | None:
-    value = offer_data.get("enlace") or offer_data.get("url") or offer_data.get("id")
-    return str(value).strip() if value else None
-
-
-def _build_job_offer(offer_data: dict[str, Any], url: str) -> models.JobOffer:
-    return models.JobOffer(
-        titulo=offer_data.get("titulo") or offer_data.get("title") or "Sin titulo",
-        empresa=offer_data.get("empresa") or offer_data.get("company") or "Empresa confidencial",
-        ubicacion=offer_data.get("ubicacion") or offer_data.get("location") or "No especificado",
-        modalidad=offer_data.get("modalidad") or "No especificado",
-        salario=offer_data.get("salario") or offer_data.get("salary") or "No especificado",
-        descripcion=offer_data.get("descripcion"),
-        enlace=url,
-        fuente=offer_data.get("fuente") or offer_data.get("source") or "Adzuna",
-        estado=offer_data.get("estado") or "guardado",
-        fecha_publicacion=offer_data.get("fecha_publicacion"),
-    )
-
-
 def _scan_alert(
     db: Session,
     alert: models.Alert,
@@ -183,8 +182,6 @@ def _scan_alert(
     new_offers = 0
     new_matches = 0
 
-    alert_id = alert.id
-    user_id = alert.user_id
     keyword = alert.termino
     province = _clean_filter(alert.ubicacion)
     modality = _clean_filter(alert.modalidad)
@@ -200,28 +197,9 @@ def _scan_alert(
     offers_found += len(offers)
 
     for offer_data in offers:
-        url = _offer_url(offer_data)
-        if not url:
-            continue
-
-        db_offer, offer_created = get_or_create_job_offer(
-            db,
-            _build_job_offer(offer_data, url),
-        )
-        if offer_created:
-            new_offers += 1
-
-        user_oferta, match_created = get_or_create_user_offer(
-            db,
-            user_id=user_id,
-            offer_id=db_offer.id,
-            alert_id=alert_id,
-        )
-        if not match_created:
-            continue
-
-        new_matches += 1
-        enqueue_offer_notification(db, user_oferta)
+        offer_created, match_created = ingest_offer_for_alert(db, offer_data, alert)
+        new_offers += int(offer_created)
+        new_matches += int(match_created)
 
     return offers_found, new_offers, new_matches
 
@@ -397,10 +375,10 @@ class JobRadarScheduler:
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
 
-    def run_once(self) -> models.ScraperRun:
+    def run_once(self) -> int:
         db = self.session_factory()
         try:
-            return run_scheduled_scraper(db=db)
+            return enqueue_active_alert_scans(db)
         finally:
             db.close()
 
@@ -453,6 +431,7 @@ def get_scheduler_status(db: Session) -> dict[str, Any]:
             "age_seconds": age_seconds,
             "is_stale": age_seconds > max(scheduler_service.poll_interval_seconds * 3, 120),
             "manual_jobs_processed": heartbeat.manual_jobs_processed,
+            "alert_jobs_processed": heartbeat.alert_jobs_processed,
             "notifications_processed": heartbeat.notifications_processed,
         }
     else:
@@ -463,12 +442,18 @@ def get_scheduler_status(db: Session) -> dict[str, Any]:
             "age_seconds": None,
             "is_stale": True,
             "manual_jobs_processed": 0,
+            "alert_jobs_processed": 0,
             "notifications_processed": 0,
         }
     queues = {
         "manual_pending": (
             db.query(models.ManualSyncJob)
             .filter(models.ManualSyncJob.status == "pending")
+            .count()
+        ),
+        "alert_pending": (
+            db.query(models.AlertScanJob)
+            .filter(models.AlertScanJob.status == "pending")
             .count()
         ),
         "notifications_pending": (

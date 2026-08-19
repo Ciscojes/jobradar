@@ -83,7 +83,9 @@ Antes de producción, rota cualquier token que se haya usado durante pruebas.
 - Mantener `DOCS_ENABLED=false` si Swagger no debe ser público.
 - Ejecutar `scripts/smoke_check.py` después de cada despliegue.
 - Revisar logs de `failed` en notificaciones y errores 401/429.
-- Confirmar que existe exactamente una réplica del servicio `worker` para evitar búsquedas duplicadas.
+- Verificar `/health/ready` y conectar los request IDs/logs JSON al agregador elegido.
+- Programar `scripts/backup_postgres.sh` y probar `scripts/restore_postgres.sh` en una base aislada.
+- Varias réplicas de API comparten límites y colas mediante PostgreSQL. Los jobs usan bloqueo y deduplicación.
 
 ## Decisiones pendientes
 
@@ -91,4 +93,6 @@ Antes de producción, rota cualquier token que se haya usado durante pruebas.
 - Dominios: API y dashboard.
 - HTTPS/proxy: proveedor gestionado o reverse proxy.
 - Conectar las métricas y el heartbeat expuestos en `/scheduler/status` al monitor elegido.
-- Backups de PostgreSQL.
+- Proveedor y retención definitiva para backups de PostgreSQL.
+
+Procedimientos detallados: [runbook operativo](operations-runbook.md).

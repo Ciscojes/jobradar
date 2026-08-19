@@ -57,3 +57,14 @@ def test_production_accepts_secure_secret_key(monkeypatch):
     assert settings.allow_mock_offers is False
 
     get_settings.cache_clear()
+
+
+def test_config_rechaza_enteros_invalidos(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("AUTH_RATE_LIMIT_REQUESTS", "muchos")
+
+    with pytest.raises(RuntimeError, match="AUTH_RATE_LIMIT_REQUESTS"):
+        get_settings()
+
+    get_settings.cache_clear()

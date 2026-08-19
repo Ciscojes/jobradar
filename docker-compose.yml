@@ -1,7 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: jobradar-postgres
+    image: postgres:16.9-alpine
     restart: unless-stopped
 
     environment:
@@ -10,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobradar}
 
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
     volumes:
       - jobradar_postgres_data:/var/lib/postgresql/data
@@ -26,9 +25,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-api.txt
+        REQUIREMENTS_FILE: requirements-api.lock
 
-    container_name: jobradar-api
     restart: unless-stopped
 
     command: >
@@ -68,9 +66,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-api.txt
+        REQUIREMENTS_FILE: requirements-api.lock
 
-    container_name: jobradar-worker
     restart: unless-stopped
     command: python -m app.worker
 
@@ -93,9 +90,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-dashboard.txt
+        REQUIREMENTS_FILE: requirements-dashboard.lock
 
-    container_name: jobradar-dashboard
     restart: unless-stopped
 
     command: >

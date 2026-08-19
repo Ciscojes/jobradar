@@ -215,8 +215,42 @@ def test_mantenimiento_worker_actualiza_heartbeat_y_procesa_colas():
 
         heartbeat = db.query(models.WorkerHeartbeat).one()
         assert calls == ["manual", "outbox"]
-        assert result == {"manual_jobs": 2, "notifications": 3}
+        assert result == {"manual_jobs": 2, "alert_jobs": 0, "notifications": 3}
         assert heartbeat.worker_name == "scheduler"
         assert heartbeat.last_seen_at is not None
+        assert heartbeat.alert_jobs_processed == 0
+    finally:
+        db.close()
+
+
+def test_busqueda_de_alerta_se_deduplica_y_la_ejecuta_el_worker():
+    reset_database()
+    alert_scans = import_module("app.services.alert_scans")
+    db = TestingSessionLocal()
+    calls = []
+    try:
+        user = models.User(email="alert-job@example.com", password_hash="hashed")
+        db.add(user)
+        db.flush()
+        alert = models.Alert(user_id=user.id, termino="python", activo=True)
+        db.add(alert)
+        db.flush()
+
+        first = alert_scans.enqueue_alert_scan(db, alert.id)
+        second = alert_scans.enqueue_alert_scan(db, alert.id)
+        db.commit()
+
+        assert first.id == second.id
+        assert db.query(models.AlertScanJob).count() == 1
+
+        def scanner(session, queued_alert):
+            calls.append(queued_alert.id)
+            return models.ScraperRun(source="Adzuna", status="success")
+
+        assert alert_scans.process_alert_scan_jobs(db, scanner=scanner) == 1
+        db.refresh(first)
+        assert calls == [alert.id]
+        assert first.status == "completed"
+        assert first.dedupe_key is None
     finally:
         db.close()

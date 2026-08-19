@@ -9,7 +9,7 @@
 <br/>
 
 ![Views](https://komarev.com/ghpvc/?username=jobradar-project&color=00FF41&style=for-the-badge&label=REPO+VIEWS)
-[![Status](https://img.shields.io/badge/Status-En_producción-00FF41?style=for-the-badge)](/)
+[![Status](https://img.shields.io/badge/Status-Preproducción-00FF41?style=for-the-badge)](/)
 [![Made in Madrid](https://img.shields.io/badge/Made_in-Madrid_🇪🇸-00FF41?style=for-the-badge)](/)
 
 <br/>
@@ -20,7 +20,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/Tests-24_passing-00FF41?style=for-the-badge&logo=pytest&logoColor=white)](/)
+[![Tests](https://img.shields.io/badge/Tests-77_passing-00FF41?style=for-the-badge&logo=pytest&logoColor=white)](/)
 [![License](https://img.shields.io/badge/License-MIT-00FF41?style=for-the-badge)](LICENSE)
 
 <br/>
@@ -78,14 +78,14 @@ Este no es un script de scraping suelto — es una **aplicación SaaS completa d
 |---|---|
 | 🔐 **Autenticación JWT multiusuario** | Cada usuario tiene su propia sesión, sus propias alertas y sus propias ofertas |
 | 🧑‍💼 **Perfil profesional** | Puesto deseado, ubicación, modalidad y nivel de experiencia — genera recomendaciones automáticamente |
-| ⚡ **Recomendaciones instantáneas** | En cuanto te registras o creas una alerta, se busca y se muestra al momento, sin esperar al scheduler |
+| ⚡ **Recomendaciones asíncronas** | Al registrarte o crear una alerta, la búsqueda queda en una cola persistente para el worker |
 | 📡 **Integración con Adzuna** | Búsqueda de ofertas reales vía API oficial, con datos de prueba automáticos si no hay credenciales |
 | 🔔 **Notificaciones** | Telegram por usuario, con mensaje de bienvenida automático al conectar el canal |
 | ⏱️ **Scheduler automático** | Worker independiente con APScheduler, intervalo configurable e historial de cada ejecución |
 | 📋 **Seguimiento de ofertas** | Marca ofertas como `guardado`, `aplicado` o `descartado` |
 | 🌐 **API REST documentada** | Swagger UI interactivo en `/docs` |
 | 🖥️ **Dashboard completo** | Perfil, Ofertas, Alertas, Canales y Scraper — todo autenticado y en tiempo real |
-| 🧪 **Tests automatizados** | Suite de 69 tests con cobertura mínima en CI sobre auth, alertas, colas, Telegram, scheduler y migraciones |
+| 🧪 **Tests automatizados** | Suite de 77 tests con cobertura mínima en CI sobre auth, alertas, colas, Telegram, scheduler y migraciones |
 | 🐳 **Docker-ready** | `docker-compose` con FastAPI + worker + Streamlit + PostgreSQL listos para desplegar |
 | 🗃️ **Migraciones versionadas** | Esquema de base de datos gestionado con Alembic, sin scripts sueltos |
 
@@ -149,7 +149,7 @@ jobradar/
 │
 ├── 📂 migrations/                    # Migraciones Alembic versionadas
 │
-├── 📂 tests/                         # 69 tests: API, scheduler, colas, notificaciones, Telegram y migraciones
+├── 📂 tests/                         # API, scheduler, colas, notificaciones, Telegram y migraciones
 │
 ├── 🐳 docker-compose.yml
 ├── 📄 requirements.txt
@@ -276,7 +276,7 @@ PATCH  /auth/me                    → Editar perfil (dispara recomendaciones al
 GET    /ofertas/                   → Lista de ofertas
 PATCH  /ofertas/{id}/estado        → Actualiza estado (guardado / aplicado / descartado)
 
-POST   /alertas/                   → Crea alerta (busca ofertas al momento)
+POST   /alertas/                   → Crea alerta y encola su búsqueda
 GET    /alertas/                   → Lista de alertas
 PATCH  /alertas/{id}/activar       → Reactiva alerta (vuelve a buscar al instante)
 DELETE /alertas/{id}                → Elimina alerta

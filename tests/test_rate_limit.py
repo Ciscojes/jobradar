@@ -2,7 +2,8 @@ import pytest
 from fastapi import HTTPException, Request
 
 from app.config import get_settings
-from app.rate_limit import check_rate_limit, limit_sync_attempts
+from app.rate_limit import check_persistent_rate_limit, check_rate_limit, limit_sync_attempts
+from tests.db import TestingSessionLocal, reset_database
 
 
 def test_check_rate_limit_rechaza_exceso_de_intentos():
@@ -36,3 +37,20 @@ def test_sync_tiene_limite_independiente(monkeypatch):
 
     assert exc_info.value.status_code == 429
     get_settings.cache_clear()
+
+
+def test_rate_limit_persistente_es_compartido_entre_sesiones():
+    reset_database()
+    first_db = TestingSessionLocal()
+    second_db = TestingSessionLocal()
+    try:
+        check_persistent_rate_limit(first_db, "auth:shared", 2, 60)
+        check_persistent_rate_limit(second_db, "auth:shared", 2, 60)
+
+        with pytest.raises(HTTPException) as exc_info:
+            check_persistent_rate_limit(first_db, "auth:shared", 2, 60)
+
+        assert exc_info.value.status_code == 429
+    finally:
+        first_db.close()
+        second_db.close()

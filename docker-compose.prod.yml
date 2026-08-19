@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.9-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-jobradar}
@@ -19,7 +19,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-api.txt
+        REQUIREMENTS_FILE: requirements-api.lock
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade head &&
@@ -52,7 +52,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-api.txt
+        REQUIREMENTS_FILE: requirements-api.lock
     restart: unless-stopped
     command: python -m app.worker
     depends_on:
@@ -73,7 +73,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REQUIREMENTS_FILE: requirements-dashboard.txt
+        REQUIREMENTS_FILE: requirements-dashboard.lock
     restart: unless-stopped
     command: >
       streamlit run dashboard/main.py

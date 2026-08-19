@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import urllib.parse
 
 from ..config import get_settings
+from .http import get_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,12 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
     }
 
     try:
-        response = requests.get(indeed_url, headers=headers, timeout=10)
+        response = get_with_retry(
+            indeed_url,
+            headers=headers,
+            timeout=10,
+            request_get=requests.get,
+        )
         # Si somos bloqueados o la respuesta no es 200, caemos al fallback de mock de forma segura
         if response.status_code != 200:
             return _mock_or_raise(query, limit, f"HTTP {response.status_code}")

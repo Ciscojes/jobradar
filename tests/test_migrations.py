@@ -49,6 +49,8 @@ def test_alembic_migrations_upgrade_downgrade_and_restore_head(tmp_path, monkeyp
         "notification_logs",
         "notification_outbox",
         "manual_sync_jobs",
+        "alert_scan_jobs",
+        "rate_limit_buckets",
         "worker_heartbeats",
         "scraper_runs",
         "alembic_version",
@@ -60,6 +62,9 @@ def test_alembic_migrations_upgrade_downgrade_and_restore_head(tmp_path, monkeyp
         {column["name"] for column in inspector.get_columns("notification_logs")}
     )
     assert "new_matches" in {column["name"] for column in inspector.get_columns("scraper_runs")}
+    assert "alert_jobs_processed" in {
+        column["name"] for column in inspector.get_columns("worker_heartbeats")
+    }
     engine.dispose()
 
     command.check(config)

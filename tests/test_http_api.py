@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.database import get_db
 from app.main import app
+from app.services.alert_scans import process_alert_scan_jobs
 from tests.db import TestingSessionLocal, reset_database
 
 
@@ -84,3 +85,40 @@ def test_http_telegram_no_permite_enumerar_chats_sin_enlace_privado(http_client)
 
     assert missing_link.status_code == 422
     assert forged_link.status_code == 400
+
+
+def test_http_propaga_request_id_valido_y_reemplaza_uno_inseguro(http_client):
+    supplied = http_client.get("/health/live", headers={"X-Request-ID": "jobradar-test-1"})
+    unsafe = http_client.get("/health/live", headers={"X-Request-ID": "bad value\n"})
+
+    assert supplied.headers["x-request-id"] == "jobradar-test-1"
+    assert unsafe.headers["x-request-id"] != "bad value\n"
+    assert len(unsafe.headers["x-request-id"]) == 32
+
+
+def test_flujo_registro_alerta_worker_y_ofertas(http_client, monkeypatch):
+    monkeypatch.setenv("ALLOW_MOCK_OFFERS", "true")
+    headers = _authenticated_headers(http_client)
+    created = http_client.post(
+        "/alertas/",
+        headers=headers,
+        json={
+            "termino": "python",
+            "ubicacion": "Cualquiera",
+            "modalidad": "Cualquiera",
+            "fuente": "Adzuna",
+            "activo": True,
+        },
+    )
+    assert created.status_code == 201
+
+    db = TestingSessionLocal()
+    try:
+        assert process_alert_scan_jobs(db) == 1
+    finally:
+        db.close()
+
+    offers = http_client.get("/ofertas/", headers=headers)
+    assert offers.status_code == 200
+    assert offers.json()
+    assert all(item["fuente"] == "Adzuna" for item in offers.json())

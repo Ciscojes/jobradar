@@ -166,6 +166,40 @@ class ManualSyncJob(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
+class AlertScanJob(Base):
+    __tablename__ = "alert_scan_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(
+        Integer,
+        ForeignKey("alertas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String, nullable=False, default="pending", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    available_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    dedupe_key = Column(String, nullable=True, unique=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+
+class RateLimitBucket(Base):
+    __tablename__ = "rate_limit_buckets"
+    __table_args__ = (
+        UniqueConstraint("scope", "key_hash", "window_id", name="uq_rate_limit_bucket"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    scope = Column(String, nullable=False)
+    key_hash = Column(String, nullable=False)
+    window_id = Column(Integer, nullable=False)
+    request_count = Column(Integer, nullable=False, default=1)
+    updated_at = Column(DateTime, nullable=False, default=utc_now)
+
+
 class WorkerHeartbeat(Base):
     __tablename__ = "worker_heartbeats"
 
@@ -175,6 +209,7 @@ class WorkerHeartbeat(Base):
     last_seen_at = Column(DateTime, nullable=False, default=utc_now, index=True)
     last_error = Column(Text, nullable=True)
     manual_jobs_processed = Column(Integer, nullable=False, default=0)
+    alert_jobs_processed = Column(Integer, nullable=False, default=0)
     notifications_processed = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
