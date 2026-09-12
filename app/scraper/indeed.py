@@ -9,21 +9,35 @@ from .http import get_with_retry
 
 logger = logging.getLogger(__name__)
 
+INDEED_SOURCE = "Indeed"
 
-def _mock_or_raise(query: str, limit: int, reason: str) -> List[Dict[str, Any]]:
+
+def _mock_or_raise(keyword: str, provincia: str | None, modalidad: str | None, fuente: str, limit: int, reason: str) -> List[Dict[str, Any]]:
     if get_settings().allow_mock_offers:
-        return get_mock_indeed_offers(query, limit)
+        return get_mock_indeed_offers(keyword, provincia, modalidad, fuente, limit)
     raise RuntimeError(f"Indeed no está disponible: {reason}")
 
-def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str, Any]]:
+
+def search_indeed_offers(
+    keyword: str = "python",
+    provincia: str | None = None,
+    modalidad: str | None = None,
+    fuente: str = INDEED_SOURCE,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
     """
     Simula o realiza el raspado de ofertas en Indeed España.
     Dado que Indeed tiene protecciones antibot fuertes (Cloudflare), 
     se implementa una lógica de raspado base con fallback automático a datos simulados realistas.
     """
+    encoded_query = urllib.parse.quote(keyword)
+
     # URL de búsqueda en Indeed España
-    encoded_query = urllib.parse.quote(query)
-    indeed_url = f"https://es.indeed.com/jobs?q={encoded_query}&l="
+    indeed_url = f"https://es.indeed.com/jobs?q={encoded_query}"
+    if provincia:
+        indeed_url += f"&l={urllib.parse.quote(provincia)}"
+    else:
+        indeed_url += "&l="
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
@@ -39,7 +53,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         )
         # Si somos bloqueados o la respuesta no es 200, caemos al fallback de mock de forma segura
         if response.status_code != 200:
-            return _mock_or_raise(query, limit, f"HTTP {response.status_code}")
+            return _mock_or_raise(keyword, provincia, modalidad, fuente, limit, f"HTTP {response.status_code}")
             
         soup = BeautifulSoup(response.text, "html.parser")
         
@@ -47,7 +61,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         job_cards = soup.find_all(class_="resultContent")
         if not job_cards:
             # Si no encuentra elementos, es muy probable que haya saltado un captcha/bloqueo de Cloudflare
-            return _mock_or_raise(query, limit, "respuesta sin ofertas reconocibles")
+            return _mock_or_raise(keyword, provincia, modalidad, fuente, limit, "respuesta sin ofertas reconocibles")
             
         parsed_offers = []
         for card in job_cards[:limit]:
@@ -73,7 +87,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
                     "salario": "No especificado",
                     "descripcion": f"Oferta encontrada en Indeed para {titulo}.",
                     "enlace": enlace,
-                    "fuente": "Indeed",
+                    "fuente": fuente,
                     "estado": "guardado",
                     "fecha_publicacion": "Reciente"
                 })
@@ -81,7 +95,7 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
                 continue
                 
         if not parsed_offers:
-            return _mock_or_raise(query, limit, "no se pudo interpretar ninguna oferta")
+            return _mock_or_raise(keyword, provincia, modalidad, fuente, limit, "no se pudo interpretar ninguna oferta")
             
         return parsed_offers
         
@@ -89,9 +103,20 @@ def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str
         logger.exception("Indeed connection failed: %s", e)
         if isinstance(e, RuntimeError):
             raise
-        return _mock_or_raise(query, limit, "error de conexión")
+        return _mock_or_raise(keyword, provincia, modalidad, fuente, limit, "error de conexión")
 
-def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:
+
+def fetch_indeed_offers(query: str = "python", limit: int = 10) -> List[Dict[str, Any]]:
+    return search_indeed_offers(keyword=query, limit=limit)
+
+
+def get_mock_indeed_offers(
+    keyword: str = "python",
+    provincia: str | None = None,
+    modalidad: str | None = None,
+    fuente: str = INDEED_SOURCE,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
     """
     Devuelve ofertas mockeadas para simular Indeed España.
     """
@@ -104,7 +129,7 @@ def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:
             "salario": "45.000€ - 55.000€ Bruto/Año",
             "descripcion": "Buscamos un Ingeniero de Software con experiencia sólida en Python, Pandas y modelos de lenguaje (LLMs).",
             "enlace": "https://es.indeed.com/viewjob?jk=indeed123456",
-            "fuente": "Indeed",
+            "fuente": fuente,
             "estado": "guardado",
             "fecha_publicacion": "Hace 2 días"
         },
@@ -116,7 +141,7 @@ def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:
             "salario": "28.000€ - 32.000€ Bruto/Año",
             "descripcion": "Desarrollo y mantenimiento de plataformas web robustas basadas en Django Framework y PostgreSQL.",
             "enlace": "https://es.indeed.com/viewjob?jk=indeed789012",
-            "fuente": "Indeed",
+            "fuente": fuente,
             "estado": "guardado",
             "fecha_publicacion": "Hace 4 días"
         },
@@ -128,17 +153,29 @@ def get_mock_indeed_offers(query: str, limit: int) -> List[Dict[str, Any]]:
             "salario": "55.000€ - 65.000€ Bruto/Año",
             "descripcion": "Buscamos un líder técnico que defina arquitectura de microservicios y optimice algoritmos complejos en Python.",
             "enlace": "https://es.indeed.com/viewjob?jk=indeed345678",
-            "fuente": "Indeed",
+            "fuente": fuente,
             "estado": "guardado",
             "fecha_publicacion": "Hace 1 semana"
         }
     ]
-    # Filtrar según la keyword
-    filtered = [o for o in mock_data if query.lower() in o["titulo"].lower() or query.lower() in o["descripcion"].lower()]
-    # Si la keyword no coincide con ninguno, devolvemos todo igual pero adaptando los títulos
-    if not filtered:
-        filtered = mock_data
-        for o in filtered:
-            o["titulo"] = f"{o['titulo']} ({query})"
+
+    keyword_value = (keyword or "").strip().lower()
+    provincia_value = (provincia or "").strip().lower()
+    modalidad_value = (modalidad or "").strip().lower()
+
+    filtered = []
+    for offer in mock_data:
+        searchable = f"{offer['titulo']} {offer['descripcion']}".lower()
+        if keyword_value and keyword_value not in searchable:
+            continue
+        if provincia_value and provincia_value not in offer["ubicacion"].lower():
+            continue
+        if modalidad_value and modalidad_value not in offer["modalidad"].lower():
+            continue
+        filtered.append(offer)
+
+    # Si la keyword no coincide con ninguno, devolvemos un fallback basado en la primera oferta mock
+    if not filtered and keyword_value:
+        filtered = [{**mock_data[0], "titulo": f"{mock_data[0]['titulo']} ({keyword})"}]
             
     return filtered[:limit]
