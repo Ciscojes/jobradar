@@ -319,7 +319,7 @@ GET    /scraper/runs               → Historial de ejecuciones del scraper
 - [x] Suite de tests automatizados
 - [x] Dockerización con docker-compose
 - [ ] Deploy en producción (VPS / Railway)
-- [ ] Panel de estadísticas por usuario
+- [x] Panel de estadísticas por usuario
 
 <br/>
 

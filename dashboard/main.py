@@ -1161,6 +1161,29 @@ def render_cv() -> None:
         st.button("Editar datos base", on_click=set_active_section, args=("Mi perfil",), use_container_width=True)
 
 
+
+def render_stats() -> None:
+    render_page_header("Estadísticas", "Métricas y resumen de tu embudo de búsqueda de empleo.")
+    stats = api_request("GET", "/ofertas/stats")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total de Ofertas", stats.get("total", 0))
+    col2.metric("Guardadas", stats.get("guardado", 0))
+    col3.metric("Aplicadas", stats.get("aplicado", 0))
+    col4.metric("Descartadas", stats.get("descartado", 0))
+
+    st.markdown("### Resumen visual")
+    data = pd.DataFrame({
+        "Estado": ["Guardado", "Aplicado", "Descartado"],
+        "Cantidad": [stats.get("guardado", 0), stats.get("aplicado", 0), stats.get("descartado", 0)]
+    })
+
+    if stats.get("total", 0) > 0:
+        st.bar_chart(data.set_index("Estado"))
+    else:
+        render_empty_state("Aún no hay estadísticas", "Interactúa con las ofertas para ver tus métricas.")
+
+
 def render_profile() -> None:
     render_page_header("Mi perfil", "Mantén tu búsqueda actualizada para mejorar las recomendaciones.")
     user = api_request("GET", "/auth/me")
@@ -1247,7 +1270,7 @@ def main() -> None:
         render_auth()
         return
 
-    section_options = ["Ofertas", "Mi CV", "Búsquedas", "Avisos", "Actividad", "Mi perfil"]
+    section_options = ["Ofertas", "Mi CV", "Estadísticas", "Búsquedas", "Avisos", "Actividad", "Mi perfil"]
     sync_section_from_query(section_options)
     if st.session_state.get("section") not in section_options:
         st.session_state["section"] = "Ofertas"
@@ -1260,6 +1283,8 @@ def main() -> None:
         render_offers()
     elif section == "Mi CV":
         render_cv()
+    elif section == "Estadísticas":
+        render_stats()
     elif section == "Búsquedas":
         render_alerts()
     elif section == "Avisos":
