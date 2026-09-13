@@ -48,6 +48,7 @@ class Settings:
     metrics_enabled: bool
     metrics_token: str | None
     trust_proxy_headers: bool
+    scraper_api_key: str | None
 
     @property
     def is_production(self) -> bool:
@@ -109,4 +110,5 @@ def get_settings() -> Settings:
         metrics_enabled=metrics_enabled,
         metrics_token=metrics_token,
         trust_proxy_headers=_get_bool("TRUST_PROXY_HEADERS", False),
+        scraper_api_key=os.getenv("SCRAPER_API_KEY") or None,
     )

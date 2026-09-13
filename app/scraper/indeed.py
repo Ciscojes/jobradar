@@ -44,9 +44,16 @@ def search_indeed_offers(
         "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
     }
 
+    scraper_key = get_settings().scraper_api_key
+    if scraper_key:
+        api_url = f"http://api.scraperapi.com?api_key={scraper_key}&url={urllib.parse.quote(indeed_url)}"
+        target_url = api_url
+    else:
+        target_url = indeed_url
+
     try:
         response = get_with_retry(
-            indeed_url,
+            target_url,
             headers=headers,
             timeout=10,
             request_get=requests.get,
