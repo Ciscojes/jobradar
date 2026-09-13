@@ -166,9 +166,3 @@ class ScraperRun(BaseModel):
     error_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
-
-class OfertasStats(BaseModel):
-    guardado: int
-    aplicado: int
-    descartado: int
-    total: int

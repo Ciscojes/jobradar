@@ -18,25 +18,6 @@ def _oferta_con_estado_usuario(
     """Serializa una oferta usando el estado privado del usuario."""
     return schemas.Oferta.model_validate(oferta).model_copy(update={"estado": estado})
 
-
-@router.get("/stats", response_model=schemas.OfertasStats)
-def get_ofertas_stats(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    query = (
-        db.query(models.UserOferta.estado)
-        .filter(models.UserOferta.user_id == current_user.id)
-    )
-
-    stats = {"guardado": 0, "aplicado": 0, "descartado": 0}
-    for row in query.all():
-        if row.estado in stats:
-            stats[row.estado] += 1
-
-    stats["total"] = sum(stats.values())
-    return stats
-
 @router.get("/", response_model=List[schemas.Oferta])
 def read_ofertas(
     q: Optional[str] = None,
