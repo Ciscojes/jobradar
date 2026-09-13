@@ -17,7 +17,13 @@ from app.routers.alertas import (
     read_alertas,
     update_alerta,
 )
-from app.routers.ofertas import create_oferta, read_oferta, read_ofertas, update_oferta_estado
+from app.routers.ofertas import (
+    create_oferta,
+    read_oferta,
+    read_oferta_stats,
+    read_ofertas,
+    update_oferta_estado,
+)
 from app.schemas import (
     AlertaCreate,
     AlertaUpdate,
@@ -97,6 +103,7 @@ def test_registro_login_y_usuario_autenticado(db_session):
 def test_rutas_protegidas_declaran_get_current_user():
     protected_paths = {
         "/ofertas/",
+        "/ofertas/stats",
         "/ofertas/{oferta_id}",
         "/ofertas/{oferta_id}/estado",
         "/alertas/",
@@ -286,6 +293,45 @@ def test_estado_oferta_es_independiente_por_usuario(db_session):
         estado="aplicado", db=db_session, current_user=user_a
     )] == [offer.id]
     assert read_ofertas(estado="aplicado", db=db_session, current_user=user_b) == []
+
+
+def test_estadisticas_ofertas_son_privadas_por_usuario(db_session):
+    user_a = models.User(email="stats-a@example.com", password_hash="hashed")
+    user_b = models.User(email="stats-b@example.com", password_hash="hashed")
+    offers = [
+        models.Oferta(
+            titulo=f"Oferta stats {index}",
+            empresa="JobRadar Labs",
+            ubicacion="Remoto",
+            enlace=f"https://example.com/ofertas/stats-{index}",
+            fuente="Test",
+            estado="guardado",
+        )
+        for index in range(3)
+    ]
+    db_session.add_all([user_a, user_b, *offers])
+    db_session.flush()
+    db_session.add_all(
+        [
+            models.UserOferta(user_id=user_a.id, oferta_id=offers[0].id, estado="guardado"),
+            models.UserOferta(user_id=user_a.id, oferta_id=offers[1].id, estado="aplicado"),
+            models.UserOferta(user_id=user_b.id, oferta_id=offers[2].id, estado="descartado"),
+        ]
+    )
+    db_session.commit()
+
+    assert read_oferta_stats(db=db_session, current_user=user_a) == {
+        "guardado": 1,
+        "aplicado": 1,
+        "descartado": 0,
+        "total": 2,
+    }
+    assert read_oferta_stats(db=db_session, current_user=user_b) == {
+        "guardado": 0,
+        "aplicado": 0,
+        "descartado": 1,
+        "total": 1,
+    }
 
 
 def test_crear_y_borrar_alerta(db_session):

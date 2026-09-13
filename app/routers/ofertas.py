@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
@@ -72,6 +73,35 @@ def read_ofertas(
             for oferta, estado_usuario in results
         ]
     return results
+
+
+@router.get("/stats", response_model=dict[str, int])
+def read_oferta_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Devuelve el embudo de ofertas privado del usuario autenticado."""
+    stats = {"guardado": 0, "aplicado": 0, "descartado": 0}
+
+    if isinstance(current_user, models.User):
+        rows = (
+            db.query(models.UserOferta.estado, func.count(models.UserOferta.id))
+            .filter(models.UserOferta.user_id == current_user.id)
+            .group_by(models.UserOferta.estado)
+            .all()
+        )
+    else:
+        rows = (
+            db.query(models.Oferta.estado, func.count(models.Oferta.id))
+            .group_by(models.Oferta.estado)
+            .all()
+        )
+
+    for estado, count in rows:
+        if estado in stats:
+            stats[estado] = count
+
+    return {**stats, "total": sum(stats.values())}
 
 @router.get("/{oferta_id}", response_model=schemas.Oferta)
 def read_oferta(
