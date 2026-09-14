@@ -1,4 +1,6 @@
 import uuid
+from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
@@ -122,3 +124,70 @@ def test_flujo_registro_alerta_worker_y_ofertas(http_client, monkeypatch):
     assert offers.status_code == 200
     assert offers.json()
     assert all(item["fuente"] == "Adzuna" for item in offers.json())
+
+
+def test_recuperacion_de_password_es_de_un_solo_uso_e_invalida_sesiones(
+    http_client, monkeypatch
+):
+    email = f"reset-{uuid.uuid4().hex}@example.com"
+    old_password = "clave-anterior-123"
+    new_password = "clave-nueva-456"
+    sent_messages: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(
+        "app.routers.auth.get_settings",
+        lambda: SimpleNamespace(smtp_host="mailpit", frontend_url="http://localhost:3000"),
+    )
+    monkeypatch.setattr(
+        "app.routers.auth.send_password_reset_email",
+        lambda destination, reset_url: sent_messages.append((destination, reset_url)),
+    )
+
+    assert http_client.post(
+        "/auth/register", json={"email": email, "password": old_password}
+    ).status_code == 201
+    old_login = http_client.post(
+        "/auth/login", json={"email": email, "password": old_password}
+    )
+    old_headers = {"Authorization": f"Bearer {old_login.json()['access_token']}"}
+
+    forgot = http_client.post("/auth/forgot-password", json={"email": email})
+    assert forgot.status_code == 200
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == email
+    reset_token = parse_qs(urlparse(sent_messages[0][1]).query)["token"][0]
+
+    reset = http_client.post(
+        "/auth/reset-password", json={"token": reset_token, "password": new_password}
+    )
+    assert reset.status_code == 200
+    assert http_client.post(
+        "/auth/reset-password", json={"token": reset_token, "password": new_password}
+    ).status_code == 400
+    assert http_client.post(
+        "/auth/login", json={"email": email, "password": old_password}
+    ).status_code == 401
+    assert http_client.post(
+        "/auth/login", json={"email": email, "password": new_password}
+    ).status_code == 200
+    assert http_client.get("/auth/me", headers=old_headers).status_code == 401
+
+
+def test_recuperacion_no_revela_si_un_correo_existe(http_client, monkeypatch):
+    sent_messages: list[str] = []
+    monkeypatch.setattr(
+        "app.routers.auth.get_settings",
+        lambda: SimpleNamespace(smtp_host="mailpit", frontend_url="http://localhost:3000"),
+    )
+    monkeypatch.setattr(
+        "app.routers.auth.send_password_reset_email",
+        lambda destination, reset_url: sent_messages.append(destination),
+    )
+
+    response = http_client.post(
+        "/auth/forgot-password", json={"email": "unknown@example.com"}
+    )
+
+    assert response.status_code == 200
+    assert "Si el correo está registrado" in response.json()["message"]
+    assert sent_messages == []

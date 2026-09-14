@@ -54,7 +54,7 @@ python scripts/load_check.py --url https://api-staging.example.com/health \
 1. Crear backup antes de migraciones destructivas.
 2. Construir imágenes y ejecutar la suite de CI.
 3. Ejecutar `alembic upgrade head` una sola vez.
-4. Arrancar API, worker y dashboard.
+4. Arrancar API, worker y frontend Next.js.
 5. Esperar `/health/ready` y ejecutar `scripts/smoke_check.py`.
 6. Si falla, conservar la base migrada cuando la migración sea compatible y volver a la
    imagen anterior. Un downgrade de esquema requiere revisión manual y backup confirmado.

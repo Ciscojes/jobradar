@@ -243,6 +243,7 @@ def read_scraper_runs(
     """
     return (
         db.query(models.ScraperRun)
+        .filter(models.ScraperRun.user_id == current_user.id)
         .order_by(models.ScraperRun.started_at.desc(), models.ScraperRun.id.desc())
         .offset(offset)
         .limit(limit)

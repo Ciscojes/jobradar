@@ -10,12 +10,14 @@ Copia `.env.production.example` como `.env` en el entorno de producción y relle
 - `SECRET_KEY`: valor aleatorio de 32+ caracteres.
 - `POSTGRES_PASSWORD`: contraseña del PostgreSQL incluido en Compose.
 - `DATABASE_URL` (opcional): si se define, la API usa esa base gestionada en lugar de la URL interna.
-- `BACKEND_CORS_ORIGINS`: URL pública del dashboard.
+- `BACKEND_CORS_ORIGINS`: URL pública del frontend Next.js.
 - `TRUSTED_HOSTS`: hostnames públicos permitidos para la API/dashboard.
 - `TELEGRAM_BOT_TOKEN`: token privado del bot oficial.
 - `TELEGRAM_BOT_USERNAME`: username público del bot, sin `@`.
 - `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY`.
-- `SMTP_*` si se activa email real.
+- `NEXT_PUBLIC_API_URL`: URL pública de la API que se integra en el build de Next.js.
+- `FRONTEND_URL`: URL pública utilizada en los enlaces de recuperación.
+- `SMTP_*` y `EMAIL_FROM` para la recuperación de contraseña.
 
 En producción `AUTO_CREATE_TABLES=false`; el esquema se aplica con Alembic.
 
@@ -38,12 +40,12 @@ de notificaciones. `WORKER_POLL_INTERVAL_SECONDS` controla la frecuencia de las 
 
 ## Smoke test
 
-Cuando API y dashboard estén levantados:
+Cuando API y frontend estén levantados:
 
 ```bash
 python scripts/smoke_check.py \
   --api-url http://localhost:8000 \
-  --dashboard-url http://localhost:8501
+  --dashboard-url http://localhost:3000
 ```
 
 En plataforma real, sustituye esas URLs por las URLs públicas o internas disponibles.
@@ -51,7 +53,7 @@ En plataforma real, sustituye esas URLs por las URLs públicas o internas dispon
 El smoke test valida:
 
 - `/health`
-- dashboard HTTP
+- frontend HTTP
 - registro/login de usuario smoke
 - `/auth/me`
 - `/notificaciones/canales`

@@ -86,7 +86,7 @@ def process_manual_sync_jobs(
         db.commit()
 
         try:
-            runner(query, user_id)
+            new_offers = runner(query, user_id)
         except Exception as exc:
             logger.exception("Manual sync job %s failed", job_id)
             current = db.get(models.ManualSyncJob, job_id)
@@ -98,11 +98,34 @@ def process_manual_sync_jobs(
                 current.status = "pending"
                 current.available_at = models.utc_now() + timedelta(minutes=min(2**attempts, 60))
             db.commit()
+            db.add(
+                models.ScraperRun(
+                    user_id=user_id,
+                    source=f"Manual: {query}"[:80],
+                    status="error",
+                    started_at=current_time,
+                    finished_at=models.utc_now(),
+                    error_message=str(exc),
+                )
+            )
+            db.commit()
         else:
             current = db.get(models.ManualSyncJob, job_id)
             current.status = "completed"
             current.error_message = None
             current.finished_at = models.utc_now()
+            db.commit()
+            db.add(
+                models.ScraperRun(
+                    user_id=user_id,
+                    source=f"Manual: {query}"[:80],
+                    status="success",
+                    started_at=current_time,
+                    finished_at=current.finished_at,
+                    offers_found=new_offers,
+                    new_offers=new_offers,
+                )
+            )
             db.commit()
         processed += 1
     return processed

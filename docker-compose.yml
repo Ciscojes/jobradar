@@ -1,4 +1,11 @@
 services:
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   postgres:
     image: postgres:16.9-alpine
     restart: unless-stopped
@@ -9,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobradar}
 
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
 
     volumes:
       - jobradar_postgres_data:/var/lib/postgresql/data
@@ -42,10 +49,6 @@ services:
     volumes:
       - .:/code
 
-    depends_on:
-      postgres:
-        condition: service_healthy
-
     env_file:
       - .env
 
@@ -53,6 +56,17 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:-jobradar}@postgres:5432/${POSTGRES_DB:-jobradar}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
+      FRONTEND_URL: http://localhost:3000
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USE_TLS: "false"
+      EMAIL_FROM: JobRadar <no-reply@jobradar.local>
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
@@ -85,6 +99,26 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-jobradar}:${POSTGRES_PASSWORD:-jobradar}@postgres:5432/${POSTGRES_DB:-jobradar}
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jobradar_alertas_bot}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   dashboard:
     build:
       context: .
@@ -93,6 +127,7 @@ services:
         REQUIREMENTS_FILE: requirements-dashboard.lock
 
     restart: unless-stopped
+    profiles: ["legacy"]
 
     command: >
       streamlit run dashboard/main.py

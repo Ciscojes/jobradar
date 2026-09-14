@@ -5,12 +5,17 @@ import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 
-type User = {
+export type User = {
   id: number;
   email: string;
   nombre?: string;
   puesto_deseado?: string;
   ubicacion_preferida?: string;
+  modalidad_preferida?: string;
+  nivel_experiencia?: string;
+  bio?: string;
+  is_active: boolean;
+  created_at: string;
 };
 
 type AuthContextType = {
@@ -18,6 +23,7 @@ type AuthContextType = {
   loading: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,7 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (token: string) => {
-    Cookies.set("access_token", token, { expires: 1 });
+    Cookies.set("access_token", token, {
+      expires: 1,
+      sameSite: "strict",
+      secure: window.location.protocol === "https:",
+    });
     await fetchUser();
     router.push("/dashboard");
   };
@@ -61,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser: fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

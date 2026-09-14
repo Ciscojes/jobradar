@@ -26,6 +26,7 @@ class User(Base):
     modalidad_preferida = Column(String, nullable=True, default="Cualquiera")
     nivel_experiencia = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    auth_version = Column(Integer, nullable=False, default=0)
 
     alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     notification_logs = relationship("NotificationLog", back_populates="user")
@@ -33,6 +34,23 @@ class User(Base):
         "NotificationChannel", back_populates="user", cascade="all, delete-orphan"
     )
     user_ofertas = relationship("UserOferta", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship(
+        "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
+    )
+    scraper_runs = relationship("ScraperRun", back_populates="user")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+    user = relationship("User", back_populates="password_reset_tokens")
 
 
 class JobOffer(Base):
@@ -243,6 +261,7 @@ class ScraperRun(Base):
     __tablename__ = "scraper_runs"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     source = Column(String, nullable=False)
     status = Column(String, nullable=False)
     started_at = Column(DateTime, default=utc_now)
@@ -252,6 +271,8 @@ class ScraperRun(Base):
     new_offers = Column(Integer, default=0)
     new_matches = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
+
+    user = relationship("User", back_populates="scraper_runs")
 
 
 Oferta = JobOffer

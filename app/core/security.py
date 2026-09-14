@@ -67,7 +67,11 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + padding)
 
 
-def create_access_token(subject: str, expires_delta: datetime.timedelta | None = None) -> str:
+def create_access_token(
+    subject: str,
+    expires_delta: datetime.timedelta | None = None,
+    auth_version: int = 0,
+) -> str:
     now = datetime.datetime.now(datetime.UTC)
     expire = now + (
         expires_delta or datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -77,6 +81,7 @@ def create_access_token(subject: str, expires_delta: datetime.timedelta | None =
         "sub": subject,
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
+        "ver": auth_version,
     }
     header_segment = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
     payload_segment = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode())

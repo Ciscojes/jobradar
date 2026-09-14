@@ -28,4 +28,6 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user or not user.is_active:
         raise credentials_error
+    if int(payload.get("ver", 0)) != (user.auth_version or 0):
+        raise credentials_error
     return user

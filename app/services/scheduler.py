@@ -97,6 +97,8 @@ def ensure_scheduler_schema(engine: Engine) -> None:
 
     if "scraper_runs" in existing_tables:
         columns = {column["name"] for column in inspector.get_columns("scraper_runs")}
+        if "user_id" not in columns:
+            statements.append("ALTER TABLE scraper_runs ADD COLUMN user_id INTEGER")
         if "duration_seconds" not in columns:
             statements.append("ALTER TABLE scraper_runs ADD COLUMN duration_seconds INTEGER")
         if "new_offers" not in columns:
@@ -131,6 +133,10 @@ def ensure_scheduler_schema(engine: Engine) -> None:
             statements.append("ALTER TABLE users ADD COLUMN nivel_experiencia VARCHAR")
         if "bio" not in columns:
             statements.append("ALTER TABLE users ADD COLUMN bio TEXT")
+        if "auth_version" not in columns:
+            statements.append(
+                "ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0"
+            )
         if "channel" in columns:
             # La columna "channel" pasa a ser opcional (legacy); nada que hacer en SQLite,
             # ya se crea nullable en el esquema actual de modelos.
@@ -222,6 +228,7 @@ def scan_single_alert(
 
         finished_at = _now()
         scraper_run = models.ScraperRun(
+            user_id=alert.user_id,
             source="Adzuna",
             status="success",
             started_at=started_at,
@@ -240,6 +247,7 @@ def scan_single_alert(
         db.rollback()
         finished_at = _now()
         scraper_run = models.ScraperRun(
+            user_id=alert.user_id,
             source="Adzuna",
             status="error",
             started_at=started_at,

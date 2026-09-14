@@ -48,6 +48,13 @@ class Settings:
     metrics_enabled: bool
     metrics_token: str | None
     trust_proxy_headers: bool
+    frontend_url: str
+    smtp_host: str | None
+    smtp_port: int
+    smtp_user: str | None
+    smtp_password: str | None
+    smtp_use_tls: bool
+    email_from: str
 
     @property
     def is_production(self) -> bool:
@@ -109,4 +116,11 @@ def get_settings() -> Settings:
         metrics_enabled=metrics_enabled,
         metrics_token=metrics_token,
         trust_proxy_headers=_get_bool("TRUST_PROXY_HEADERS", False),
+        frontend_url=os.getenv("FRONTEND_URL", "http://localhost:3000").strip().rstrip("/"),
+        smtp_host=os.getenv("SMTP_HOST") or None,
+        smtp_port=_get_int("SMTP_PORT", 587),
+        smtp_user=os.getenv("SMTP_USER") or None,
+        smtp_password=os.getenv("SMTP_PASSWORD") or None,
+        smtp_use_tls=_get_bool("SMTP_USE_TLS", True),
+        email_from=os.getenv("EMAIL_FROM", "JobRadar <no-reply@jobradar.local>").strip(),
     )

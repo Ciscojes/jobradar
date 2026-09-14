@@ -2,7 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { ExternalLink, Building2, MapPin } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, Building2, MapPin, RefreshCw, Search } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { getApiErrorMessage } from "@/lib/errors";
 
 type Oferta = {
   id: number;
@@ -98,8 +101,9 @@ function KanbanColumn({ title, status, ofertas, onStatusChange, colorClass }: Co
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  const { data: ofertas, isLoading } = useQuery<Oferta[]>({
+  const { data: ofertas, isLoading, isError } = useQuery<Oferta[]>({
     queryKey: ["ofertas"],
     queryFn: async () => {
       const res = await api.get("/ofertas/?limit=100");
@@ -116,7 +120,13 @@ export default function DashboardPage() {
     },
   });
 
-  if (isLoading) return <div className="flex h-full items-center justify-center text-gray-500">Cargando tablero...</div>;
+  const syncMutation = useMutation({
+    mutationFn: async () => api.post("/scraper/sync", null, { params: { query: user?.puesto_deseado || "python" } }),
+  });
+
+  if (isLoading) return <div className="flex h-full items-center justify-center text-gray-500"><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Cargando tablero...</div>;
+
+  if (isError) return <div role="alert" className="rounded-xl bg-red-50 p-5 text-red-700">No se pudieron cargar tus ofertas. Comprueba que la API esté disponible.</div>;
 
   const safeOfertas = ofertas || [];
   const guardadas = safeOfertas.filter(o => o.estado === "guardado");
@@ -129,18 +139,24 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      <div className="flex justify-between items-center shrink-0">
+      <div className="flex flex-wrap justify-between gap-4 items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tablero de Ofertas</h1>
           <p className="text-sm text-gray-500">Organiza y haz seguimiento a tus oportunidades.</p>
         </div>
+        <button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />{syncMutation.isPending ? "Solicitando..." : "Actualizar ofertas"}</button>
       </div>
+
+      {syncMutation.isSuccess && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">Búsqueda encolada. Puedes seguir su avance en Actividad.</p>}
+      {syncMutation.isError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{getApiErrorMessage(syncMutation.error, "No se pudo iniciar la búsqueda.")}</p>}
+      {mutation.isError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{getApiErrorMessage(mutation.error, "No se pudo actualizar la oferta.")}</p>}
 
       {safeOfertas.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-gray-300">
           <div className="text-gray-400 mb-2"><Building2 className="w-12 h-12" /></div>
           <h3 className="text-lg font-medium text-gray-900">No tienes ofertas todavía</h3>
           <p className="text-gray-500 text-sm mt-1">Configura una alerta o haz una búsqueda manual para empezar.</p>
+          <Link href="/dashboard/alerts" className="mt-5 flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"><Search className="h-4 w-4" /> Crear una búsqueda</Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">

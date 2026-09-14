@@ -82,9 +82,10 @@ jobs:
           docker compose config >/tmp/jobradar-compose.yml
           POSTGRES_PASSWORD=change-me \
           SECRET_KEY=ci-secret-key-with-more-than-32-characters \
-          BACKEND_CORS_ORIGINS=http://localhost:8501 \
+          BACKEND_CORS_ORIGINS=http://localhost:3000 \
           TRUSTED_HOSTS=localhost,127.0.0.1 \
           TELEGRAM_BOT_USERNAME=jobradar_alertas_bot \
+          NEXT_PUBLIC_API_URL=http://localhost:8000 \
           DATABASE_URL=postgresql://external-user:external-password@db.example.com:5432/jobradar \
             docker compose -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
           grep -F "postgresql://external-user:external-password@db.example.com:5432/jobradar" /tmp/jobradar-compose-prod.yml
@@ -95,6 +96,7 @@ jobs:
         run: |
           POSTGRES_PASSWORD=change-me \
           SECRET_KEY=ci-secret-key-with-more-than-32-characters \
-          BACKEND_CORS_ORIGINS=http://localhost:8501 \
+          BACKEND_CORS_ORIGINS=http://localhost:3000 \
           TRUSTED_HOSTS=localhost,127.0.0.1 \
-            docker compose -f docker-compose.prod.yml build api worker dashboard
+          NEXT_PUBLIC_API_URL=http://localhost:8000 \
+          docker compose -f docker-compose.prod.yml build api worker frontend dashboard

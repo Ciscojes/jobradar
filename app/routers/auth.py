@@ -1,6 +1,10 @@
 import logging
+import datetime
+import hashlib
+import secrets
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -15,6 +19,8 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..rate_limit import limit_auth_attempts
 from ..services.alert_scans import enqueue_alert_scan
+from ..services.email import send_password_reset_email
+from ..config import get_settings
 
 
 router = APIRouter(
@@ -112,7 +118,77 @@ def login_user(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Usuario inactivo")
 
-    return schemas.Token(access_token=create_access_token(str(user.id)))
+    return schemas.Token(
+        access_token=create_access_token(str(user.id), auth_version=user.auth_version or 0)
+    )
+
+
+@router.post("/forgot-password", response_model=schemas.MessageResponse)
+def forgot_password(
+    payload: schemas.ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: None = Depends(limit_auth_attempts),
+):
+    generic_message = "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña."
+    email = normalize_email(payload.email)
+    user = db.query(models.User).filter(models.User.email == email).first()
+    settings = get_settings()
+    if not user or not validate_email(email) or not settings.smtp_host:
+        return schemas.MessageResponse(message=generic_message)
+
+    now = models.utc_now()
+    db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.user_id == user.id,
+        models.PasswordResetToken.used_at.is_(None),
+    ).update({"used_at": now}, synchronize_session=False)
+
+    raw_token = secrets.token_urlsafe(32)
+    reset_token = models.PasswordResetToken(
+        user_id=user.id,
+        token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+        expires_at=now + datetime.timedelta(minutes=30),
+    )
+    db.add(reset_token)
+    db.commit()
+
+    reset_url = f"{settings.frontend_url}/reset-password?{urlencode({'token': raw_token})}"
+    background_tasks.add_task(send_password_reset_email, user.email, reset_url)
+    return schemas.MessageResponse(message=generic_message)
+
+
+@router.post("/reset-password", response_model=schemas.MessageResponse)
+def reset_password(
+    payload: schemas.ResetPasswordRequest,
+    db: Session = Depends(get_db),
+    _: None = Depends(limit_auth_attempts),
+):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    now = models.utc_now()
+    reset_token = (
+        db.query(models.PasswordResetToken)
+        .filter(
+            models.PasswordResetToken.token_hash == token_hash,
+            models.PasswordResetToken.used_at.is_(None),
+            models.PasswordResetToken.expires_at > now,
+        )
+        .first()
+    )
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="El enlace no es válido o ha caducado")
+
+    user = db.query(models.User).filter(models.User.id == reset_token.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="El enlace no es válido o ha caducado")
+
+    user.password_hash = hash_password(payload.password)
+    user.auth_version = (user.auth_version or 0) + 1
+    db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.user_id == user.id,
+        models.PasswordResetToken.used_at.is_(None),
+    ).update({"used_at": now}, synchronize_session=False)
+    db.commit()
+    return schemas.MessageResponse(message="Contraseña actualizada. Ya puedes iniciar sesión.")
 
 
 @router.get("/me", response_model=schemas.User)

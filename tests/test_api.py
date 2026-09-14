@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.db import TestingSessionLocal, engine, reset_database as reset_test_database
 from app import models
 from app.database import Base
-from app.main import app, health_check, read_root
+from app.main import app, health_check, read_root, read_scraper_runs
 from app.deps import get_current_user
 from app.routers.auth import login_user, read_me, register_user
 from app.routers.alertas import (
@@ -576,3 +576,22 @@ def test_user_oferta_es_unica_por_usuario_y_oferta(db_session):
     )
     with pytest.raises(IntegrityError):
         db_session.commit()
+
+
+def test_actividad_del_scraper_se_limita_al_usuario_actual(db_session):
+    user_a = models.User(email="activity-a@example.com", password_hash="hashed")
+    user_b = models.User(email="activity-b@example.com", password_hash="hashed")
+    db_session.add_all([user_a, user_b])
+    db_session.flush()
+    db_session.add_all(
+        [
+            models.ScraperRun(user_id=user_a.id, source="A", status="success"),
+            models.ScraperRun(user_id=user_b.id, source="B", status="success"),
+            models.ScraperRun(source="Global", status="success"),
+        ]
+    )
+    db_session.commit()
+
+    runs = read_scraper_runs(db=db_session, current_user=user_a, limit=50, offset=0)
+
+    assert [run.source for run in runs] == ["A"]
