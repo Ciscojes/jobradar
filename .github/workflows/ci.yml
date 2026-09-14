@@ -87,7 +87,7 @@ jobs:
           TELEGRAM_BOT_USERNAME=jobradar_alertas_bot \
           NEXT_PUBLIC_API_URL=http://localhost:8000 \
           DATABASE_URL=postgresql://external-user:external-password@db.example.com:5432/jobradar \
-            docker compose -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
+            docker compose --profile legacy -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
           grep -F "postgresql://external-user:external-password@db.example.com:5432/jobradar" /tmp/jobradar-compose-prod.yml
           grep -F "HOME: /tmp" /tmp/jobradar-compose-prod.yml
           cp .env.production.example /tmp/jobradar-env-production.example
