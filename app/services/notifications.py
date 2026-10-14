@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..tracing import traced
 from .telegram import send_telegram_notification
 
 
@@ -35,6 +36,7 @@ def enqueue_offer_notification(
         )
 
 
+@traced("worker.notification_outbox")
 def process_notification_outbox(
     db: Session,
     sender: Callable[..., tuple[bool, str, str | None]] = send_telegram_notification,
@@ -184,6 +186,7 @@ def _record_notification_log(
     return log
 
 
+@traced("notification.send")
 def send_channel_notification(
     db: Session,
     channel: models.NotificationChannel,

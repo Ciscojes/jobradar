@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .. import models
 from ..database import SessionLocal
+from ..tracing import traced
 from ..scraper.adzuna import fetch_adzuna_offers
 from ..scraper.indeed import fetch_indeed_offers
 from .ingestion import match_offer_to_alert, offer_matches_alert, persist_offer
@@ -20,6 +21,7 @@ def enqueue_manual_sync(db: Session, user_id: int, query: str) -> models.ManualS
     return job
 
 
+@traced("worker.manual_sync")
 def run_sync_task(
     query: str,
     user_id: int,
@@ -55,6 +57,7 @@ def run_sync_task(
         db.close()
 
 
+@traced("worker.manual_queue")
 def process_manual_sync_jobs(
     db: Session,
     runner: Callable[[str, int], int] = run_sync_task,

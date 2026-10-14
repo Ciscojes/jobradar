@@ -1,6 +1,7 @@
 from threading import Event
 
 from .observability import configure_logging
+from .tracing import flush_traces
 from .services.scheduler import JobRadarScheduler, scheduler_service
 
 
@@ -16,7 +17,10 @@ def run_worker(
     except KeyboardInterrupt:
         pass
     finally:
-        scheduler.shutdown()
+        try:
+            scheduler.shutdown()
+        finally:
+            flush_traces()
 
 
 def main() -> None:
