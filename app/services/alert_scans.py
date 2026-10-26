@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..tracing import traced
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ def enqueue_active_alert_scans(db: Session) -> int:
     return max(after - before, 0)
 
 
+@traced("worker.alert_queue")
 def process_alert_scan_jobs(
     db: Session,
     scanner: Callable[[Session, models.Alert], models.ScraperRun] | None = None,

@@ -228,3 +228,9 @@ Consulta también el [historial de colaboradores](https://github.com/Ciscojes/jo
 **Si JobRadar te resulta útil, considera apoyar el proyecto con una estrella.**
 
 </div>
+
+## LangSmith opcional
+
+La API y el worker incluyen trazas opt-in sin datos de usuario. Consulta
+[configuración, privacidad y evaluaciones](docs/langsmith.md). La integración
+está desactivada por defecto y las evaluaciones sintéticas funcionan offline.

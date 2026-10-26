@@ -1,5 +1,11 @@
 name: CI
 
+env:
+  JOBRADAR_LANGSMITH_ENABLED: "false"
+  JOBRADAR_LANGSMITH_EVALUATIONS_ENABLED: "false"
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
+
 on:
   push:
     branches: ["main"]
@@ -45,8 +51,11 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Evaluate synthetic alert matching offline
+        run: python -m scripts.evaluate_matching
+
       - name: Compile Python sources
-        run: python -m compileall -q app dashboard tests
+        run: python -m compileall -q app dashboard tests scripts
 
       - name: Audit Python dependencies
         run: pip-audit -r requirements.txt
@@ -56,6 +65,11 @@ jobs:
         env:
           DATABASE_URL: "sqlite:///:memory:"
           TEST_DATABASE_URL: "sqlite:///:memory:"
+
+      - name: Verify optional LangSmith SDK without network tracing
+        run: |
+          pip install --require-hashes -r requirements-langsmith.lock
+          pytest tests/test_tracing.py -q
 
       - name: Verify Alembic metadata alignment
         run: |
@@ -100,3 +114,6 @@ jobs:
           TRUSTED_HOSTS=localhost,127.0.0.1 \
           NEXT_PUBLIC_API_URL=http://localhost:8000 \
           docker compose -f docker-compose.prod.yml build api worker frontend dashboard
+
+      - name: Build API with optional LangSmith SDK
+        run: docker build --build-arg REQUIREMENTS_FILE=requirements-api.lock --build-arg INSTALL_LANGSMITH=true -t jobradar-langsmith-ci .

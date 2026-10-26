@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .. import models
 from ..database import SessionLocal
+from ..tracing import traced
 from ..scraper.adzuna import search_adzuna_offers
 from ..rate_limit import cleanup_rate_limit_buckets
 from .alert_scans import enqueue_active_alert_scans, process_alert_scan_jobs
@@ -30,6 +31,7 @@ def _now() -> datetime:
     return models.utc_now()
 
 
+@traced("worker.maintenance")
 def run_worker_maintenance(
     db: Session,
     manual_processor: Callable[[Session], int] = process_manual_sync_jobs,
@@ -174,6 +176,7 @@ def _should_search_adzuna(alert: models.Alert) -> bool:
     return source in {"cualquiera", "adzuna"}
 
 
+@traced("worker.alert_search")
 def _scan_alert(
     db: Session,
     alert: models.Alert,
@@ -210,6 +213,7 @@ def _scan_alert(
     return offers_found, new_offers, new_matches
 
 
+@traced("worker.alert_scan")
 def scan_single_alert(
     db: Session,
     alert: models.Alert,
@@ -264,6 +268,7 @@ def scan_single_alert(
         return scraper_run
 
 
+@traced("worker.scheduled_scraper")
 def run_scheduled_scraper(
     db: Session | None = None,
     search_func: Callable[..., list[dict[str, Any]]] = search_adzuna_offers,

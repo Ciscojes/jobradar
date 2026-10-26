@@ -20,6 +20,7 @@ services:
       dockerfile: Dockerfile
       args:
         REQUIREMENTS_FILE: requirements-api.lock
+        INSTALL_LANGSMITH: ${INSTALL_LANGSMITH:-false}
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade head &&
@@ -53,6 +54,7 @@ services:
       dockerfile: Dockerfile
       args:
         REQUIREMENTS_FILE: requirements-api.lock
+        INSTALL_LANGSMITH: ${INSTALL_LANGSMITH:-false}
     restart: unless-stopped
     command: python -m app.worker
     depends_on:

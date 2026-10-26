@@ -2,6 +2,8 @@ import logging
 import re
 import time
 import uuid
+from contextlib import asynccontextmanager
+from asyncio import to_thread
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -15,6 +17,7 @@ from .config import get_settings
 from .database import engine, Base, get_db
 from .deps import get_current_user
 from .observability import configure_logging, request_id_context
+from .tracing import flush_traces, span
 from .rate_limit import limit_sync_attempts
 from .routers import auth, ofertas, alertas, notificaciones, scheduler
 from .services.manual_sync import enqueue_manual_sync
@@ -42,10 +45,19 @@ if settings.auto_create_tables:
     ensure_scheduler_schema(engine)
 
 
+@asynccontextmanager
+async def lifespan(app):
+    try:
+        yield
+    finally:
+        await to_thread(flush_traces)
+
+
 app = FastAPI(
     title="jobradar API",
     description="API para centralizar ofertas de empleo y enviar alertas por Telegram.",
     version="1.0.0",
+    lifespan=lifespan,
     docs_url="/docs" if settings.docs_enabled else None,
     redoc_url="/redoc" if settings.docs_enabled else None,
     openapi_url="/openapi.json" if settings.docs_enabled else None,
@@ -76,7 +88,8 @@ async def add_security_headers(request, call_next):
     token = request_id_context.set(request_id)
     started_at = time.perf_counter()
     try:
-        response = await call_next(request)
+        with span("api.request"):
+            response = await call_next(request)
     except Exception:
         route = getattr(request.scope.get("route"), "path", request.url.path)
         HTTP_REQUESTS.labels(request.method, route, "500").inc()
