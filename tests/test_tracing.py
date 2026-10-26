@@ -179,6 +179,10 @@ def test_real_sdk_drops_environment_metadata_before_transport(monkeypatch):
     monkeypatch.setenv("JOBRADAR_LANGSMITH_ENABLED", "true")
     monkeypatch.setenv("LANGSMITH_API_KEY", "synthetic-key")
     monkeypatch.setenv("LANGSMITH_PRIVATE_EMAIL", "private@example.invalid")
+    # The SDK rejects endpoint + replicas during construction, before our
+    # RunTree can explicitly disable replicas. Exercise serialization separately.
+    monkeypatch.delenv("LANGSMITH_ENDPOINT", raising=False)
+    monkeypatch.delenv("LANGCHAIN_ENDPOINT", raising=False)
     monkeypatch.setenv("LANGSMITH_RUNS_ENDPOINTS", json.dumps([{
         "api_url": "https://replica.example.invalid", "api_key": "replica-token", "updates": {
             "inputs": {"password": "private-password"}, "error": "private-error"}
@@ -204,6 +208,21 @@ def test_real_sdk_drops_environment_metadata_before_transport(monkeypatch):
     serialized = json.dumps([captured, updates], default=str)
     for secret in [*sensitive.values(), "private-error", "replica-token"]:
         assert secret not in serialized
+
+
+def test_conflicting_sdk_endpoints_fail_closed(monkeypatch):
+    sdk = pytest.importorskip("langsmith")
+    sent = []
+    monkeypatch.setattr(sdk.Client, "_create_run", lambda *args, **kwargs: sent.append(kwargs))
+    monkeypatch.setenv("JOBRADAR_LANGSMITH_ENABLED", "true")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "synthetic-key")
+    monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+    monkeypatch.setenv("LANGSMITH_RUNS_ENDPOINTS", '{"https://replica.example.invalid":"fake"}')
+    with tracing.span("test.conflicting_configuration"):
+        result = 42
+    assert result == 42
+    assert tracing._client() is None
+    assert sent == []
 
 
 @pytest.mark.parametrize("failure", ["client", "post", "patch", "flush"])

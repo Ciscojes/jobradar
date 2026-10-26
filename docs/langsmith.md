@@ -29,6 +29,9 @@ trazas. Sin clave, sin SDK o con un fallo del SDK, la aplicación sigue funciona
 los avisos locales no incluyen el texto de la excepción. La configuración del
 cliente se guarda por proceso: reinicia después de cambiar las variables.
 Para claves de organización, configura también `LANGSMITH_WORKSPACE_ID`.
+No combines `LANGSMITH_RUNS_ENDPOINTS` con `LANGSMITH_ENDPOINT` ni con
+`LANGCHAIN_ENDPOINT`: el SDK rechaza esa configuración y JobRadar desactiva
+el cliente, conservando el funcionamiento de la aplicación.
 
 En Docker, el SDK no forma parte de las imágenes por defecto. Para incluirlo,
 configura `INSTALL_LANGSMITH=true` y reconstruye API y worker:
