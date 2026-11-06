@@ -51,7 +51,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
-# Configurar middleware de CORS para conectar con Streamlit u otros orígenes
+# Orígenes permitidos para las peticiones del frontend
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=list(settings.trusted_hosts),

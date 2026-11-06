@@ -45,7 +45,7 @@ Cuando API y frontend estén levantados:
 ```bash
 python scripts/smoke_check.py \
   --api-url http://localhost:8000 \
-  --dashboard-url http://localhost:3000
+  --frontend-url http://localhost:3000
 ```
 
 En plataforma real, sustituye esas URLs por las URLs públicas o internas disponibles.

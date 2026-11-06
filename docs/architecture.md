@@ -15,7 +15,6 @@ Esta arquitectura ofrece límites claros sin asumir el coste operativo de una re
 | Worker | Búsquedas programadas, colas persistentes, reintentos y notificaciones |
 | PostgreSQL | Datos de usuarios, ofertas, alertas, trabajos, tokens e historial |
 | Mailpit | Captura local de correos durante desarrollo; no se utiliza en producción |
-| Streamlit | Interfaz heredada opcional, conservada temporalmente por compatibilidad |
 
 ## Flujo principal
 

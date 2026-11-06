@@ -13,4 +13,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "dashboard"]
+known-first-party = ["app"]

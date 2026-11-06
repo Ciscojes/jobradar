@@ -32,7 +32,7 @@ type ColumnProps = {
 
 function KanbanColumn({ title, status, ofertas, onStatusChange, colorClass }: ColumnProps) {
   return (
-    <div className={`flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[calc(100vh-140px)]`}>
+    <div className={`flex flex-col bg-white rounded-md border border-gray-200 overflow-hidden min-h-40 lg:h-[calc(100vh-140px)]`}>
       <div className={`px-4 py-3 border-b border-gray-100 font-semibold text-sm uppercase tracking-wider flex justify-between items-center ${colorClass}`}>
         <span>{title}</span>
         <span className="bg-white/50 text-gray-800 px-2 py-0.5 rounded-full text-xs">{ofertas.length}</span>

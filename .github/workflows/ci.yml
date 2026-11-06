@@ -46,13 +46,13 @@ jobs:
         run: ruff check .
 
       - name: Compile Python sources
-        run: python -m compileall -q app dashboard tests
+        run: python -m compileall -q app tests
 
       - name: Audit Python dependencies
         run: pip-audit -r requirements.txt
 
       - name: Run tests with SQLite
-        run: pytest -q --cov=app --cov=dashboard --cov-report=term-missing --cov-fail-under=60
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=60
         env:
           DATABASE_URL: "sqlite:///:memory:"
           TEST_DATABASE_URL: "sqlite:///:memory:"
@@ -87,9 +87,8 @@ jobs:
           TELEGRAM_BOT_USERNAME=jobradar_alertas_bot \
           NEXT_PUBLIC_API_URL=http://localhost:8000 \
           DATABASE_URL=postgresql://external-user:external-password@db.example.com:5432/jobradar \
-            docker compose --profile legacy -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
+            docker compose -f docker-compose.prod.yml config >/tmp/jobradar-compose-prod.yml
           grep -F "postgresql://external-user:external-password@db.example.com:5432/jobradar" /tmp/jobradar-compose-prod.yml
-          grep -F "HOME: /tmp" /tmp/jobradar-compose-prod.yml
           cp .env.production.example /tmp/jobradar-env-production.example
 
       - name: Build production images
@@ -99,4 +98,21 @@ jobs:
           BACKEND_CORS_ORIGINS=http://localhost:3000 \
           TRUSTED_HOSTS=localhost,127.0.0.1 \
           NEXT_PUBLIC_API_URL=http://localhost:8000 \
-          docker compose -f docker-compose.prod.yml build api worker frontend dashboard
+          docker compose -f docker-compose.prod.yml build api worker frontend
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm audit
+      - run: npm run build

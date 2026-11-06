@@ -1,5 +1,0 @@
-streamlit==1.61.1
-pillow==12.3.0
-pandas==2.2.3
-requests==2.34.2
-python-dotenv==1.2.3

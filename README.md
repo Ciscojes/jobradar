@@ -153,15 +153,8 @@ jobradar/
 ├── tests/                 # Pruebas unitarias e integración
 ├── scripts/               # Smoke tests, backup, restauración y carga
 ├── docs/                  # Arquitectura y operación
-├── dashboard/             # Interfaz Streamlit heredada y opcional
 ├── docker-compose.yml     # Entorno local
 └── docker-compose.prod.yml
-```
-
-La interfaz Streamlit se conserva temporalmente como alternativa heredada. No se inicia por defecto. Para utilizarla:
-
-```bash
-docker compose --profile legacy up dashboard
 ```
 
 ## Desarrollo y calidad

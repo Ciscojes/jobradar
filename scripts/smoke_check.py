@@ -51,7 +51,7 @@ def wait_for(name: str, callback, attempts: int, delay: float) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test para JobRadar desplegado.")
     parser.add_argument("--api-url", default="http://localhost:8000")
-    parser.add_argument("--dashboard-url", default="http://localhost:8501")
+    parser.add_argument("--frontend-url", default="http://localhost:3000")
     parser.add_argument("--email", default="smoke@example.com")
     parser.add_argument("--password", default="smoke-password")
     parser.add_argument("--attempts", type=int, default=12)
@@ -59,7 +59,7 @@ def main() -> int:
     args = parser.parse_args()
 
     api_url = args.api_url.rstrip("/")
-    dashboard_url = args.dashboard_url.rstrip("/")
+    frontend_url = args.frontend_url.rstrip("/")
 
     try:
         wait_for(
@@ -69,8 +69,8 @@ def main() -> int:
             args.delay,
         )
         wait_for(
-            "dashboard",
-            lambda: request_text(dashboard_url),
+            "frontend",
+            lambda: request_text(frontend_url),
             args.attempts,
             args.delay,
         )
