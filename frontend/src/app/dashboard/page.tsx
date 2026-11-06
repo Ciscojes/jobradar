@@ -32,14 +32,14 @@ type ColumnProps = {
 
 function KanbanColumn({ title, status, ofertas, onStatusChange, colorClass }: ColumnProps) {
   return (
-    <div className={`flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[calc(100vh-140px)]`}>
+    <div className={`flex flex-col bg-white rounded-md border border-gray-200 overflow-hidden min-h-40 lg:h-[calc(100vh-140px)]`}>
       <div className={`px-4 py-3 border-b border-gray-100 font-semibold text-sm uppercase tracking-wider flex justify-between items-center ${colorClass}`}>
         <span>{title}</span>
         <span className="bg-white/50 text-gray-800 px-2 py-0.5 rounded-full text-xs">{ofertas.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
         {ofertas.map((oferta) => (
-          <div key={oferta.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-indigo-300 transition-all group">
+          <div key={oferta.id} className="bg-white p-4 rounded-md border border-gray-200 hover:border-gray-400 transition-all group">
             <a href={oferta.enlace} target="_blank" rel="noopener noreferrer" className="block mb-2 group-hover:text-indigo-600 transition-colors">
               <h3 className="font-medium text-gray-900 line-clamp-2 leading-tight flex items-start gap-1">
                 {oferta.titulo}
@@ -161,21 +161,21 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
           <KanbanColumn
-            title="🎯 Guardadas"
+            title="Guardadas"
             status="guardado"
             ofertas={guardadas}
             onStatusChange={handleStatusChange}
             colorClass="bg-yellow-50 text-yellow-800 border-b-yellow-200"
           />
           <KanbanColumn
-            title="🚀 Aplicadas"
+            title="Aplicadas"
             status="aplicado"
             ofertas={aplicadas}
             onStatusChange={handleStatusChange}
             colorClass="bg-green-50 text-green-800 border-b-green-200"
           />
           <KanbanColumn
-            title="❌ Descartadas"
+            title="Descartadas"
             status="descartado"
             ofertas={descartadas}
             onStatusChange={handleStatusChange}

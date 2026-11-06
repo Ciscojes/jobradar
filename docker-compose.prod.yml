@@ -88,35 +88,5 @@ services:
       retries: 5
       start_period: 20s
 
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        REQUIREMENTS_FILE: requirements-dashboard.lock
-    restart: unless-stopped
-    profiles: ["legacy"]
-    command: >
-      streamlit run dashboard/main.py
-      --server.address=0.0.0.0
-      --server.port=8501
-      --server.fileWatcherType=none
-    depends_on:
-      api:
-        condition: service_healthy
-    ports:
-      - "${DASHBOARD_PORT:-8501}:8501"
-    environment:
-      JOBRADAR_API_URL: http://api:8000
-      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jobradar_alertas_bot}
-      HOME: /tmp
-      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/', timeout=5)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
 volumes:
   jobradar_postgres_data:

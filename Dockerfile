@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /code
 
-ARG REQUIREMENTS_FILE=requirements.txt
+ARG REQUIREMENTS_FILE=requirements-api.lock
 
 COPY ${REQUIREMENTS_FILE} /code/requirements.txt
 
@@ -18,4 +18,3 @@ COPY . .
 USER app
 
 EXPOSE 8000
-EXPOSE 8501
